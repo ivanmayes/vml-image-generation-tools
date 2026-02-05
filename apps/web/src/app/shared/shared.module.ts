@@ -1,0 +1,78 @@
+import { NgModule } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormsModule, ReactiveFormsModule } from '@angular/forms';
+import { RouterModule } from '@angular/router';
+
+import { PrimeNgModule } from './primeng.module';
+
+// Components
+import { HeaderComponent } from './components/header/header.component';
+import { AccountBarComponent } from './components/header/account-bar/account-bar.component';
+import { NavigationBarComponent } from './components/header/navigation-bar/navigation-bar.component';
+import { ConfirmDialogComponent } from './components/confirm-dialog/confirm-dialog.component';
+import { SelectDialogComponent } from './components/select-dialog/select-dialog.component';
+import { SidebarComponent } from './components/sidebar/sidebar.component';
+
+// Directives
+import { FillHeightDirective } from './directives/fill-height.directive';
+import { DropFileDirective } from './directives/drop-file.directive';
+
+// Pipes
+import { JoinWithPropPipe } from './pipes/join-with-prop.pipe';
+import { SecureRequestPipe } from './pipes/secure-request.pipe';
+import { SafeUrlPipe } from './pipes/safe-url.pipe';
+import { SafeHtmlPipe } from './pipes/safe-html.pipe';
+import { EntityFieldMaskPipe } from './pipes/entity-field-mask.pipe';
+import { PluckFromArrayPipe } from './pipes/pluck-from-array.pipe';
+import { ShortNumberPipe } from './pipes/short-number.pipe';
+
+@NgModule({
+	imports: [
+		// Angular modules
+		PrimeNgModule,
+		CommonModule,
+		RouterModule,
+		FormsModule,
+		ReactiveFormsModule,
+		// Standalone components
+		HeaderComponent,
+		AccountBarComponent,
+		NavigationBarComponent,
+		SidebarComponent,
+		ConfirmDialogComponent,
+		SelectDialogComponent,
+		// Standalone pipes
+		JoinWithPropPipe,
+		SecureRequestPipe,
+		SafeUrlPipe,
+		SafeHtmlPipe,
+		EntityFieldMaskPipe,
+		PluckFromArrayPipe,
+		ShortNumberPipe,
+		// Standalone directives
+		FillHeightDirective,
+		DropFileDirective,
+	],
+	exports: [
+		CommonModule,
+		FormsModule,
+		ReactiveFormsModule,
+		RouterModule,
+		HeaderComponent,
+		AccountBarComponent,
+		NavigationBarComponent,
+		SidebarComponent,
+		JoinWithPropPipe,
+		ConfirmDialogComponent,
+		FillHeightDirective,
+		DropFileDirective,
+		SecureRequestPipe,
+		SafeUrlPipe,
+		SafeHtmlPipe,
+		EntityFieldMaskPipe,
+		PluckFromArrayPipe,
+		SelectDialogComponent,
+		ShortNumberPipe,
+	],
+})
+export class SharedModule {}

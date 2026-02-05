@@ -1,0 +1,40 @@
+<div class="dialog-content">
+	@if (data.message) {
+		<p [innerHTML]="data.message | safeHtml"></p>
+	}
+
+	@if (confirmation && data.confirmWithString) {
+		<p>
+			Please type <strong>{{ data.confirmationString }}</strong> below to
+			confirm.
+		</p>
+		<br />
+
+		<form [formGroup]="confirmation">
+			<div class="p-field">
+				<label for="verifyString">Type the name to confirm.</label>
+				<input
+					pInputText
+					id="verifyString"
+					name="verifyString"
+					formControlName="verifyString"
+					required
+					[pattern]="escapeRegExp(data.confirmationString)"
+					class="input"
+				/>
+			</div>
+		</form>
+	}
+</div>
+
+<div class="dialog-actions">
+	<p-button label="Cancel" severity="secondary" (onClick)="no()"></p-button>
+	@if (confirmation) {
+		<p-button
+			[label]="data.confirm || 'Confirm'"
+			[disabled]="data.confirmWithString && confirmation.invalid"
+			severity="danger"
+			(onClick)="yes()"
+		></p-button>
+	}
+</div>

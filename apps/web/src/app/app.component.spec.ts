@@ -1,0 +1,62 @@
+import { provideZonelessChangeDetection } from '@angular/core';
+import { TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
+import { provideHttpClientTesting } from '@angular/common/http/testing';
+import { provideHttpClient } from '@angular/common/http';
+import { DialogService } from 'primeng/dynamicdialog';
+import { of } from 'rxjs';
+
+import { AppComponent } from './app.component';
+import { GlobalQuery } from './state/global/global.query';
+import { GlobalService } from './state/global/global.service';
+import { SessionQuery } from './state/session/session.query';
+import { SessionService } from './state/session/session.service';
+import { WppOpenService } from './_core/services/wpp-open/wpp-open.service';
+
+describe('AppComponent', () => {
+	beforeEach(async () => {
+		await TestBed.configureTestingModule({
+			imports: [AppComponent],
+			providers: [
+				provideZonelessChangeDetection(),
+				provideRouter([]),
+				provideHttpClient(),
+				provideHttpClientTesting(),
+				{
+					provide: GlobalQuery,
+					useValue: { select: () => of({}) },
+				},
+				{
+					provide: GlobalService,
+					useValue: { setAdminMode: () => {} },
+				},
+				{
+					provide: SessionQuery,
+					useValue: { isLoggedIn$: of(false), getToken: () => '' },
+				},
+				{
+					provide: SessionService,
+					useValue: { setInitialUrl: () => {} },
+				},
+				{
+					provide: DialogService,
+					useValue: {},
+				},
+				{
+					provide: WppOpenService,
+					useValue: {
+						getAccessToken: () => Promise.resolve(null),
+						getWorkspaceScope: () => Promise.resolve(null),
+						getOsContext: () => Promise.resolve(null),
+					},
+				},
+			],
+		}).compileComponents();
+	});
+
+	it('should create the app', async () => {
+		const fixture = TestBed.createComponent(AppComponent);
+		await fixture.whenStable();
+		expect(fixture.componentInstance).toBeTruthy();
+	});
+});

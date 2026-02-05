@@ -1,0 +1,110 @@
+import {
+	ChangeDetectionStrategy,
+	Component,
+	OnInit,
+	signal,
+} from '@angular/core';
+import { CommonModule } from '@angular/common';
+import {
+	FormBuilder,
+	FormGroup,
+	ReactiveFormsModule,
+	Validators,
+} from '@angular/forms';
+import { DynamicDialogConfig, DynamicDialogRef } from 'primeng/dynamicdialog';
+import { MessageService } from 'primeng/api';
+
+import { OrganizationAdminService } from '../../../../../shared/services/organization-admin.service';
+import { PrimeNgModule } from '../../../../../shared/primeng.module';
+
+@Component({
+	selector: 'app-promote-user-dialog',
+	templateUrl: './promote-user-dialog.component.html',
+	changeDetection: ChangeDetectionStrategy.OnPush,
+	imports: [CommonModule, ReactiveFormsModule, PrimeNgModule],
+})
+export class PromoteUserDialogComponent implements OnInit {
+	form!: FormGroup;
+	loading = signal(false);
+	availableRoles: any[] = [];
+	user: any;
+
+	constructor(
+		private readonly fb: FormBuilder,
+		private readonly ref: DynamicDialogRef,
+		private readonly config: DynamicDialogConfig,
+		private readonly adminService: OrganizationAdminService,
+		private readonly messageService: MessageService,
+	) {}
+
+	ngOnInit(): void {
+		this.user = this.config.data?.user;
+		this.initForm();
+		this.setupAvailableRoles();
+	}
+
+	initForm(): void {
+		this.form = this.fb.group({
+			role: [this.user?.role || '', Validators.required],
+		});
+	}
+
+	setupAvailableRoles(): void {
+		const currentUserRole = this.config.data?.currentUserRole;
+
+		// Only Admin and Super Admin roles
+		const allRoles = [
+			{ label: 'Admin', value: 'admin' },
+			{ label: 'Super Admin', value: 'super-admin' },
+		];
+
+		// Filter based on current user's role
+		if (currentUserRole === 'super-admin') {
+			this.availableRoles = allRoles;
+		} else if (currentUserRole === 'admin') {
+			// Admins can only assign admin role
+			this.availableRoles = allRoles.filter((r) => r.value === 'admin');
+		} else {
+			this.availableRoles = [];
+		}
+	}
+
+	onSubmit(): void {
+		if (this.form.invalid) {
+			this.form.markAllAsTouched();
+			return;
+		}
+
+		this.loading.set(true);
+		const formValue = this.form.value;
+		const organizationId = this.config.data?.organizationId;
+
+		this.adminService
+			.promoteUser(organizationId, {
+				userId: this.user.id,
+				targetRole: formValue.role,
+			})
+			.subscribe({
+				next: () => {
+					this.loading.set(false);
+					this.ref.close(true);
+				},
+				error: (error) => {
+					console.error('Error updating user role:', error);
+					this.messageService.add({
+						severity: 'error',
+						summary: 'Error',
+						detail:
+							error.error?.message ||
+							'Failed to update user role',
+						life: 3000,
+					});
+					this.loading.set(false);
+				},
+			});
+	}
+
+	onCancel(): void {
+		this.ref.close();
+	}
+}

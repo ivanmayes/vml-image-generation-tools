@@ -1,0 +1,40 @@
+<div class="space-page">
+	<p-toast></p-toast>
+
+	@if (!loading() && space(); as spaceData) {
+	<div class="space-header">
+		<h1>{{ spaceData.name }}</h1>
+		<p class="space-subtitle">Space ID: {{ spaceData.id }}</p>
+		<p class="space-visibility">
+			<i
+				class="pi"
+				[ngClass]="spaceData.isPublic ? 'pi-globe' : 'pi-lock'"
+			></i>
+			{{ spaceData.isPublic ? 'Public Space' : 'Private Space' }}
+		</p>
+	</div>
+	} @if (loading()) {
+	<div class="space-loading">
+		<p-progressSpinner></p-progressSpinner>
+		<p>Loading space...</p>
+	</div>
+	} @if (!loading() && accessDenied()) {
+	<div class="access-denied-container">
+		<p-card>
+			<div class="access-denied-content">
+				<i class="pi pi-lock access-denied-icon"></i>
+				<h2>Access Denied</h2>
+				<p>You do not have permission to access this space.</p>
+				<p class="access-denied-hint">
+					Please contact your administrator if you believe this is an
+					error.
+				</p>
+			</div>
+		</p-card>
+	</div>
+	} @if (!loading() && !space() && !accessDenied()) {
+	<div class="space-content">
+		<p>Space not found or you do not have access.</p>
+	</div>
+	}
+</div>

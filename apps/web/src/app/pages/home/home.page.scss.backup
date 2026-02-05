@@ -1,0 +1,302 @@
+/**
+ * Home Page Styles
+ *
+ * UX Design decisions:
+ * - Hero section with gradient background for visual impact
+ * - Responsive grid layout for setup cards (1-2-4 columns based on screen size)
+ * - Consistent spacing using design system tokens
+ * - Card hover effects for interactive feedback
+ * - Accessible typography hierarchy
+ * - Mobile-first responsive breakpoints
+ */
+
+.home-page {
+  min-height: 100%;
+  background-color: var(--p-surface-ground);
+}
+
+/* Hero Section */
+.hero-section {
+  background: linear-gradient(135deg, var(--p-primary-500), var(--p-primary-700));
+  color: white;
+  padding: var(--space-2xl) var(--space-lg);
+  margin-bottom: var(--space-xl);
+
+  .hero-content {
+    max-width: 900px;
+    margin: 0 auto;
+    text-align: center;
+  }
+
+  .hero-title {
+    font-size: 2.5rem;
+    font-weight: var(--font-weight-bold);
+    margin: 0 0 var(--space-md);
+    line-height: 1.2;
+
+    @media (max-width: 768px) {
+      font-size: 2rem;
+    }
+
+    @media (max-width: 480px) {
+      font-size: 1.75rem;
+    }
+  }
+
+  .hero-subtitle {
+    font-size: 1.125rem;
+    line-height: 1.6;
+    margin: 0 0 var(--space-xl);
+    opacity: 0.95;
+    max-width: 700px;
+    margin-left: auto;
+    margin-right: auto;
+
+    @media (max-width: 768px) {
+      font-size: 1rem;
+    }
+  }
+
+  .hero-actions {
+    display: flex;
+    gap: var(--space-md);
+    justify-content: center;
+    flex-wrap: wrap;
+
+    ::ng-deep .p-button {
+      font-size: 1rem;
+      padding: 0.75rem 1.5rem;
+
+      @media (max-width: 480px) {
+        width: 100%;
+        justify-content: center;
+      }
+    }
+  }
+}
+
+/* Setup Section */
+.setup-section {
+  padding: var(--space-xl) var(--space-lg);
+  max-width: 1400px;
+  margin: 0 auto;
+
+  .section-title {
+    font-size: 2rem;
+    font-weight: var(--font-weight-bold);
+    color: var(--p-text-color);
+    margin: 0 0 var(--space-sm);
+    text-align: center;
+
+    @media (max-width: 768px) {
+      font-size: 1.75rem;
+    }
+  }
+
+  .section-description {
+    font-size: 1.125rem;
+    color: var(--p-text-secondary-color);
+    text-align: center;
+    margin: 0 0 var(--space-xl);
+    max-width: 700px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .setup-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: var(--space-lg);
+
+    @media (max-width: 1200px) {
+      grid-template-columns: repeat(2, 1fr);
+    }
+
+    @media (max-width: 768px) {
+      grid-template-columns: 1fr;
+    }
+  }
+}
+
+/* Setup Cards */
+::ng-deep .setup-card {
+  height: 100%;
+  transition: all 0.3s ease;
+  border: 1px solid var(--p-surface-border);
+
+  &:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--p-shadow-lg);
+    border-color: var(--p-primary-color);
+  }
+
+  .p-card-header {
+    padding: 0;
+    border-bottom: none;
+  }
+
+  .card-icon-header {
+    background: linear-gradient(135deg, var(--p-primary-50), var(--p-primary-100));
+    padding: var(--space-lg);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+    .card-icon {
+      font-size: 2.5rem;
+      color: var(--p-primary-color);
+    }
+  }
+
+  .p-card-content {
+    padding: var(--space-lg);
+  }
+
+  .card-title {
+    font-size: 1.25rem;
+    font-weight: var(--font-weight-semibold);
+    color: var(--p-text-color);
+    margin: 0 0 var(--space-sm);
+  }
+
+  .card-description {
+    font-size: 0.9375rem;
+    color: var(--p-text-secondary-color);
+    line-height: 1.6;
+    margin: 0 0 var(--space-md);
+  }
+
+  .card-checklist {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+
+    li {
+      display: flex;
+      align-items: center;
+      gap: var(--space-xs);
+      padding: var(--space-2xs) 0;
+      font-size: 0.875rem;
+      color: var(--p-text-secondary-color);
+
+      i {
+        color: var(--p-green-500);
+        font-size: 0.875rem;
+      }
+    }
+  }
+
+  .p-card-footer {
+    padding: 0 var(--space-lg) var(--space-lg);
+    border-top: none;
+
+    ::ng-deep .p-button {
+      width: 100%;
+      justify-content: flex-start;
+      color: var(--p-primary-color);
+
+      &:hover {
+        background-color: var(--p-primary-50);
+      }
+    }
+  }
+}
+
+/* Features Section */
+.features-section {
+  background-color: var(--p-surface-section);
+  padding: var(--space-xl) var(--space-lg);
+  margin-top: var(--space-xl);
+
+  .section-title {
+    font-size: 2rem;
+    font-weight: var(--font-weight-bold);
+    color: var(--p-text-color);
+    margin: 0 0 var(--space-xl);
+    text-align: center;
+
+    @media (max-width: 768px) {
+      font-size: 1.75rem;
+    }
+  }
+
+  .features-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: var(--space-lg);
+    max-width: 1400px;
+    margin: 0 auto;
+
+    @media (max-width: 768px) {
+      grid-template-columns: repeat(2, 1fr);
+    }
+
+    @media (max-width: 480px) {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .feature-item {
+    text-align: center;
+    padding: var(--space-lg);
+    background-color: var(--p-surface-card);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--p-surface-border);
+    transition: all 0.2s ease;
+
+    &:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--p-shadow-md);
+    }
+
+    .feature-icon {
+      font-size: 2rem;
+      color: var(--p-primary-color);
+      margin-bottom: var(--space-sm);
+    }
+
+    .feature-title {
+      font-size: 1.125rem;
+      font-weight: var(--font-weight-semibold);
+      color: var(--p-text-color);
+      margin: 0 0 var(--space-xs);
+    }
+
+    .feature-description {
+      font-size: 0.875rem;
+      color: var(--p-text-secondary-color);
+      line-height: 1.5;
+      margin: 0;
+    }
+  }
+}
+
+/* Debug Section */
+.debug-section {
+  padding: var(--space-lg);
+  max-width: 1400px;
+  margin: var(--space-xl) auto;
+
+  ::ng-deep .p-accordion {
+    .p-accordion-header-link {
+      background-color: var(--p-surface-100);
+    }
+
+    .p-accordion-content {
+      padding: var(--space-md);
+    }
+  }
+
+  .data-display {
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-sm);
+    line-height: var(--line-height-normal);
+    color: var(--p-text-color);
+    background-color: var(--p-surface-100);
+    padding: var(--space-md);
+    border-radius: var(--radius-sm);
+    margin: 0;
+    overflow-x: auto;
+    border: 1px solid var(--p-surface-border);
+  }
+}

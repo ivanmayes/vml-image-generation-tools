@@ -1,0 +1,129 @@
+<!--
+  Compact sidebar navigation with icon-only buttons
+  UX Design decisions:
+  - 64px width for comfortable touch targets while staying compact
+  - Fixed positioning to avoid affecting content scroll
+  - Icons with tooltips on hover for clarity without labels
+  - User avatar at bottom with enhanced popover menu
+  - Accessibility: ARIA labels, keyboard navigation, focus states
+-->
+<nav class="sidebar" role="navigation" aria-label="Main navigation">
+	<!-- Logo Section -->
+	<!-- <div class="sidebar-header">
+		<img
+			src="assets/logo.png"
+			alt="Logo"
+			class="sidebar-logo"
+			[routerLink]="['/home']"
+			[pTooltip]="settings()?.name || 'Home'"
+			tooltipPosition="right"
+		/>
+	</div> -->
+
+	<!-- Navigation Items -->
+	<div class="sidebar-nav">
+		@for (item of navItems(); track item.id) {
+			<p-button
+				[icon]="'pi pi-' + item.icon"
+				[text]="!(item.route && isActiveRoute(item.route))"
+				[severity]="
+					item.route && isActiveRoute(item.route)
+						? 'primary'
+						: undefined
+				"
+				class="nav-item"
+				(onClick)="handleItemClick(item)"
+				[pTooltip]="item.label"
+				tooltipPosition="right"
+				[attr.aria-label]="'Navigate to ' + item.label"
+				[attr.aria-current]="
+					item.route && isActiveRoute(item.route) ? 'page' : null
+				"
+			>
+				<!-- Badge for notifications/counts -->
+				@if (item.badge) {
+					<span
+						class="item-badge"
+						[ngClass]="'badge-' + (item.badgeColor || 'primary')"
+						[attr.aria-label]="item.badge + ' notifications'"
+					>
+						{{ item.badge }}
+					</span>
+				}
+			</p-button>
+
+			<!-- Optional divider between sections -->
+			@if (item.dividerAfter) {
+				<p-divider class="nav-divider" />
+			}
+		}
+	</div>
+
+	<!-- User Section at Bottom -->
+	<div class="sidebar-footer">
+		<!-- User Menu with Enhanced OverlayPanel -->
+		@if (user(); as user) {
+			<div class="user-section">
+				<button
+					type="button"
+					class="user-avatar"
+					(click)="userOverlay.toggle($event)"
+					[pTooltip]="user.email"
+					tooltipPosition="right"
+					aria-label="Open user menu"
+					aria-haspopup="true"
+				>
+					{{ getUserInitial(user) }}
+				</button>
+
+				<!-- Enhanced user popover with better styling -->
+				<p-popover
+					#userOverlay
+					[dismissable]="true"
+					styleClass="user-overlay-panel"
+				>
+					<div class="user-menu-content">
+						<!-- User Info Section -->
+						<div class="user-info-section">
+							<div class="user-avatar-large">
+								{{ getUserInitial(user) }}
+							</div>
+							<div class="user-details">
+								<div class="user-email">{{ user.email }}</div>
+								@if (settings(); as settings) {
+									<div class="app-name">
+										{{ settings.name }}
+									</div>
+								}
+							</div>
+						</div>
+
+						<p-divider />
+
+						<!-- Admin Button (shown only for admins) -->
+						@if (isAdmin()) {
+							<button
+								class="menu-item-button"
+								(click)="navigateToAdmin(); userOverlay.hide()"
+								aria-label="Go to Organization Admin"
+							>
+								<i class="pi pi-cog"></i>
+								<span>Organization Admin</span>
+							</button>
+						}
+
+						<!-- Logout Button -->
+						<button
+							class="menu-item-button"
+							(click)="logout(); userOverlay.hide()"
+							aria-label="Logout"
+						>
+							<i class="pi pi-sign-out"></i>
+							<span>Logout</span>
+						</button>
+					</div>
+				</p-popover>
+			</div>
+		}
+	</div>
+</nav>

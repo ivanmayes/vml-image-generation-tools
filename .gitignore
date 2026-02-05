@@ -1,0 +1,10 @@
+.env
+node_modules
+dist
+.DS_Store
+.claude
+.playwright-mcp/
+.tasks
+.vscode
+plans
+todos

@@ -1,0 +1,20 @@
+<p-toast></p-toast>
+
+@if (loaded()) {
+	<div class="app-container">
+		@if (isLoggedIn()) {
+			<app-sidebar></app-sidebar>
+		}
+
+		<main class="main-content" [class.full-width]="!isLoggedIn()">
+			<router-outlet></router-outlet>
+		</main>
+	</div>
+} @else {
+	<div class="loading">
+		<p-progressSpinner
+			styleClass="w-1rem h-1rem"
+			strokeWidth="4"
+		></p-progressSpinner>
+	</div>
+}
