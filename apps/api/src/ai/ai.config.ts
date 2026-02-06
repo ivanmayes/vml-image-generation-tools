@@ -74,7 +74,7 @@ function buildProviderConfig(): AIProviderConfig {
 			maxRetries: parseNumber(process.env.AI_MAX_RETRIES, 3),
 		},
 		google: {
-			apiKey: process.env.GOOGLE_AI_API_KEY,
+			apiKey: process.env.GOOGLE_AI_API_KEY ?? process.env.GEMINI_API_KEY,
 			projectId: process.env.GOOGLE_CLOUD_PROJECT,
 			location: process.env.GOOGLE_CLOUD_LOCATION,
 			defaultModel: AIModel.Gemini15Pro,

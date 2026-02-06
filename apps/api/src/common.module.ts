@@ -21,6 +21,7 @@ import { AuthenticationStrategyConsole } from './authentication-strategy/authent
 import { OrganizationConsole } from './organization/organization.console';
 import { ApiKeyConsole } from './api-key/api-key.console';
 import { UserConsole } from './user/user.console';
+import { ImageGenerationModule } from './image-generation/image-generation.module';
 // CLI_SERVICES_IMPORT
 
 const providerList = [
@@ -60,8 +61,14 @@ const providerList = [
 				algorithm: 'RS256',
 			},
 		}),
+		ImageGenerationModule,
 	],
 	providers: providerList,
-	exports: [...providerList, PassportModule, JwtModule],
+	exports: [
+		...providerList,
+		PassportModule,
+		JwtModule,
+		ImageGenerationModule,
+	],
 })
 export class CommonModule {}

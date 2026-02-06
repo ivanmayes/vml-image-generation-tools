@@ -11,25 +11,35 @@ import { ApiKey } from './api-key/api-key.entity';
 import { ApiKeyLog } from './api-key/api-key-log.entity';
 import { Space } from './space/space.entity';
 import { SpaceUser } from './space-user/space-user.entity';
+import {
+	Agent,
+	AgentDocument,
+	GeneratedImage,
+	GenerationRequest,
+	PromptOptimizer,
+} from './image-generation/entities';
 // CLI_ENTITIES_IMPORT
 
 @Module({
 	imports: [
 		TypeOrmModule.forRoot({
 			name: 'default',
-			type: process.env.DATABASE_TYPE as any || 'postgres',
+			type: (process.env.DATABASE_TYPE as any) || 'postgres',
 			url: process.env.DATABASE_URL,
 			extra: {
 				ssl: process.env.DATABASE_SSL
 					? { rejectUnauthorized: false }
-					: false
+					: false,
 			},
 			entities: [__dirname + '/**/*.entity{.ts,.js}'],
 			synchronize: process.env.DATABASE_SYNCHRONIZE === 'true' || false,
-			logging: process.env.LOGGING as any || false,
+			logging: (process.env.LOGGING as any) || false,
 			autoLoadEntities: true,
-			migrations: [path.resolve(__dirname + '/../migrations-js') + '/*.js'],
-			migrationsRun: process.env.DATABASE_MIGRATE_ON_STARTUP === 'true' || false
+			migrations: [
+				path.resolve(__dirname + '/../migrations-js') + '/*.js',
+			],
+			migrationsRun:
+				process.env.DATABASE_MIGRATE_ON_STARTUP === 'true' || false,
 		}),
 		TypeOrmModule.forFeature(
 			[
@@ -42,11 +52,16 @@ import { SpaceUser } from './space-user/space-user.entity';
 				User,
 				Space,
 				SpaceUser,
+				Agent,
+				AgentDocument,
+				GeneratedImage,
+				GenerationRequest,
+				PromptOptimizer,
 				// CLI_ENTITIES_REF
 			],
-			'default'
+			'default',
 		),
 	],
-	exports: [TypeOrmModule]
+	exports: [TypeOrmModule],
 })
 export class DatabaseModule {}

@@ -34,10 +34,20 @@ import type { GoogleAIConfig } from '../../models/config';
 import { AIConfigurationError, parseProviderError } from '../../models/errors';
 
 /**
- * Default configuration
+ * Get API key lazily at runtime (after dotenv has loaded)
  */
-const DEFAULT_CONFIG: GoogleAIConfig = {
-	apiKey: process.env.GOOGLE_AI_API_KEY,
+function getApiKey(): string | undefined {
+	const key = process.env.GOOGLE_AI_API_KEY ?? process.env.GEMINI_API_KEY;
+	console.log(
+		`[GoogleClient:getApiKey] GOOGLE_AI_API_KEY: ${process.env.GOOGLE_AI_API_KEY ? 'SET' : 'NOT SET'}, GEMINI_API_KEY: ${process.env.GEMINI_API_KEY ? 'SET' : 'NOT SET'}, returning: ${key ? 'KEY_PRESENT' : 'undefined'}`,
+	);
+	return key;
+}
+
+/**
+ * Default configuration (without apiKey - will be resolved lazily)
+ */
+const DEFAULT_CONFIG: Omit<GoogleAIConfig, 'apiKey'> = {
 	defaultModel: AIModel.Gemini15Pro,
 	timeout: 60000,
 	maxRetries: 3,
@@ -47,7 +57,10 @@ const DEFAULT_CONFIG: GoogleAIConfig = {
  * Google AI API client wrapper
  */
 export class GoogleClient {
-	private static config: GoogleAIConfig = { ...DEFAULT_CONFIG };
+	private static config: GoogleAIConfig = {
+		...DEFAULT_CONFIG,
+		apiKey: undefined,
+	};
 
 	/**
 	 * Get or create Google AI client instance
@@ -55,7 +68,30 @@ export class GoogleClient {
 	private static getClient(
 		configOverride?: GoogleAIConfig,
 	): GoogleGenerativeAI {
-		const config = { ...this.config, ...(configOverride ?? {}) };
+		// Debug logging
+		console.log(
+			'[GoogleClient:getClient] configOverride?.apiKey:',
+			configOverride?.apiKey ? 'SET' : 'NOT SET',
+		);
+		console.log(
+			'[GoogleClient:getClient] this.config.apiKey:',
+			this.config.apiKey ? 'SET' : 'NOT SET',
+		);
+
+		// Resolve API key lazily at runtime
+		const lazyKey = getApiKey();
+		console.log(
+			'[GoogleClient:getClient] getApiKey() returned:',
+			lazyKey ? 'KEY_PRESENT' : 'undefined',
+		);
+
+		const apiKey = configOverride?.apiKey ?? this.config.apiKey ?? lazyKey;
+		console.log(
+			'[GoogleClient:getClient] Final apiKey:',
+			apiKey ? 'KEY_PRESENT' : 'undefined',
+		);
+
+		const config = { ...this.config, ...configOverride, apiKey };
 
 		if (!config.apiKey) {
 			throw new AIConfigurationError(
