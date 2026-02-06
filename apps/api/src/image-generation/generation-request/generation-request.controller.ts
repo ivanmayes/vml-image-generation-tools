@@ -46,6 +46,8 @@ export class GenerationRequestController {
 	public async getRequests(
 		@Param('orgId') orgId: string,
 		@Query('status') status?: GenerationRequestStatus,
+		@Query('projectId') projectId?: string,
+		@Query('spaceId') spaceId?: string,
 		@Query('limit') limit?: string,
 		@Query('offset') offset?: string,
 	) {
@@ -64,6 +66,8 @@ export class GenerationRequestController {
 			status,
 			safeLimit,
 			safeOffset,
+			projectId,
+			spaceId,
 		);
 
 		return new ResponseEnvelope(
@@ -136,6 +140,8 @@ export class GenerationRequestController {
 		const request = await this.requestService
 			.create({
 				organizationId: orgId,
+				projectId: createDto.projectId,
+				spaceId: createDto.spaceId,
 				brief: createDto.brief,
 				referenceImageUrls: createDto.referenceImageUrls,
 				negativePrompts: createDto.negativePrompts,

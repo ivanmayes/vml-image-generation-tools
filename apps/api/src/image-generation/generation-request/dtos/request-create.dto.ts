@@ -76,4 +76,12 @@ export class RequestCreateDto {
 	@Min(1)
 	@Max(20)
 	maxIterations?: number = 5;
+
+	@IsOptional()
+	@IsUUID()
+	projectId?: string;
+
+	@IsOptional()
+	@IsUUID()
+	spaceId?: string;
 }

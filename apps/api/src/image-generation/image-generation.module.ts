@@ -4,6 +4,7 @@ import { AgentModule } from './agent/agent.module';
 import { DocumentProcessorModule } from './document-processor/document-processor.module';
 import { PromptOptimizerModule } from './prompt-optimizer/prompt-optimizer.module';
 import { GenerationRequestModule } from './generation-request/generation-request.module';
+import { ProjectModule } from './project/project.module';
 import { JobsModule } from './jobs/jobs.module';
 import { OrchestrationModule } from './orchestration/orchestration.module';
 import { DebugController } from './debug.controller';
@@ -14,6 +15,7 @@ import { DebugController } from './debug.controller';
 		DocumentProcessorModule,
 		PromptOptimizerModule,
 		GenerationRequestModule,
+		ProjectModule,
 		JobsModule,
 		OrchestrationModule,
 	],
@@ -23,6 +25,7 @@ import { DebugController } from './debug.controller';
 		DocumentProcessorModule,
 		PromptOptimizerModule,
 		GenerationRequestModule,
+		ProjectModule,
 		JobsModule,
 		OrchestrationModule,
 	],

@@ -38,6 +38,8 @@ export class GenerationRequestService {
 		status?: GenerationRequestStatus,
 		limit: number = 50,
 		offset: number = 0,
+		projectId?: string,
+		spaceId?: string,
 	) {
 		const qb = this.requestRepository
 			.createQueryBuilder('request')
@@ -50,6 +52,14 @@ export class GenerationRequestService {
 
 		if (status) {
 			qb.andWhere('request.status = :status', { status });
+		}
+
+		if (projectId) {
+			qb.andWhere('request.projectId = :projectId', { projectId });
+		}
+
+		if (spaceId) {
+			qb.andWhere('request.spaceId = :spaceId', { spaceId });
 		}
 
 		return qb.getMany();
@@ -206,6 +216,39 @@ export class GenerationRequestService {
 				]),
 			},
 		});
+	}
+
+	/**
+	 * Prepare a terminal request for continuation by resetting state and extending iterations budget
+	 */
+	public async prepareForContinuation(
+		id: string,
+		additionalIterations: number,
+		judgeIds?: string[],
+	): Promise<GenerationRequest> {
+		const request = await this.requestRepository.findOne({ where: { id } });
+
+		if (!request) {
+			throw new NotFoundException('Generation request not found');
+		}
+
+		// Reset terminal state (use null, not undefined — TypeORM skips undefined on save)
+		request.status = GenerationRequestStatus.PENDING;
+		request.completionReason = null as any;
+		request.completedAt = null as any;
+		request.errorMessage = null as any;
+		request.finalImageId = null as any;
+
+		// Extend iterations budget from current position
+		request.maxIterations =
+			(request.currentIteration ?? 0) + additionalIterations;
+
+		// Swap judges if provided
+		if (judgeIds?.length) {
+			request.judgeIds = judgeIds;
+		}
+
+		return this.requestRepository.save(request);
 	}
 
 	/**

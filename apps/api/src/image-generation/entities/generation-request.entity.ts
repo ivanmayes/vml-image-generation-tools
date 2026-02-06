@@ -10,8 +10,10 @@ import {
 } from 'typeorm';
 
 import { Organization } from '../../organization/organization.entity';
+import { Space } from '../../space/space.entity';
 
 import { GeneratedImage } from './generated-image.entity';
+import { Project } from './project.entity';
 
 /**
  * Request status enum
@@ -103,6 +105,7 @@ export interface AgentEvaluationSnapshot {
 @Index(['organizationId'])
 @Index(['status'])
 @Index(['organizationId', 'status'])
+@Index(['organizationId', 'projectId'])
 export class GenerationRequest {
 	[key: string]: unknown;
 
@@ -124,6 +127,20 @@ export class GenerationRequest {
 	@ManyToOne(() => Organization, { onDelete: 'CASCADE' })
 	@JoinColumn({ name: 'organizationId' })
 	organization!: Organization;
+
+	@Column('uuid', { nullable: true })
+	projectId?: string;
+
+	@ManyToOne(() => Project, { onDelete: 'SET NULL', nullable: true })
+	@JoinColumn({ name: 'projectId' })
+	project?: Project;
+
+	@Column('uuid', { nullable: true })
+	spaceId?: string;
+
+	@ManyToOne(() => Space, { onDelete: 'SET NULL', nullable: true })
+	@JoinColumn({ name: 'spaceId' })
+	space?: Space;
 
 	@Column('text')
 	brief!: string;
@@ -224,6 +241,8 @@ export class GenerationRequest {
 		return {
 			id: this.id,
 			organizationId: this.organizationId,
+			projectId: this.projectId,
+			spaceId: this.spaceId,
 			brief: this.brief,
 			status: this.status,
 			currentIteration: this.currentIteration,
