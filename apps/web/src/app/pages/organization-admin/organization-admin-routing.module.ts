@@ -23,6 +23,13 @@ const routes: Routes = [
 					),
 			},
 			{
+				path: 'judges',
+				loadChildren: () =>
+					import('./judges/judges.module').then(
+						(m) => m.JudgesPageModule,
+					),
+			},
+			{
 				path: 'settings',
 				loadChildren: () =>
 					import('./settings/settings.module').then(
