@@ -1,0 +1,100 @@
+<div class="judge-feedback">
+	<!-- Feedback text -->
+	@if (evaluation().feedback) {
+		<div class="mb-3">
+			<p class="text-sm line-height-3 m-0">{{ evaluation().feedback }}</p>
+		</div>
+	}
+
+	<!-- What Worked -->
+	@if (evaluation().whatWorked?.length) {
+		<div class="mb-3">
+			<span class="text-sm font-semibold block mb-2">What Worked</span>
+			<div class="flex flex-wrap gap-2">
+				@for (item of evaluation().whatWorked!; track item) {
+					<p-chip [label]="item" styleClass="p-chip-success" />
+				}
+			</div>
+		</div>
+	}
+
+	<!-- Top Issue -->
+	@if (evaluation().topIssue) {
+		<div class="top-issue-detail mb-3 p-3 surface-ground border-round">
+			<div class="flex align-items-center gap-2 mb-1">
+				<i class="pi pi-exclamation-triangle text-orange-500"></i>
+				<span class="text-sm font-semibold">Top Issue</span>
+				<p-tag
+					[value]="evaluation().topIssue!.severity"
+					[severity]="
+						evaluation().topIssue!.severity === 'critical'
+							? 'danger'
+							: evaluation().topIssue!.severity === 'major'
+								? 'warn'
+								: 'info'
+					"
+					class="text-xs"
+				/>
+			</div>
+			<p class="text-sm m-0 mb-1">{{ evaluation().topIssue!.problem }}</p>
+			<p class="text-sm text-color-secondary m-0">
+				<strong>Fix:</strong> {{ evaluation().topIssue!.fix }}
+			</p>
+		</div>
+	}
+
+	<!-- Category Scores -->
+	@if (getCategoryEntries().length > 0) {
+		<div class="mb-3">
+			<span class="text-sm font-semibold block mb-2"
+				>Category Scores</span
+			>
+			<div class="category-scores">
+				@for (cat of getCategoryEntries(); track cat.key) {
+					<div
+						class="category-row flex align-items-center gap-2 mb-2"
+					>
+						<span class="category-label text-sm">{{
+							cat.key
+						}}</span>
+						<p-progressBar
+							[value]="cat.value"
+							[showValue]="true"
+							[style]="{ height: '20px', flex: '1' }"
+						/>
+					</div>
+				}
+			</div>
+		</div>
+	}
+
+	<!-- Checklist -->
+	@if (getChecklistEntries().length > 0) {
+		<div class="mb-3">
+			<span class="text-sm font-semibold block mb-2">Checklist</span>
+			<div class="checklist">
+				@for (item of getChecklistEntries(); track item.key) {
+					<div
+						class="checklist-item flex align-items-start gap-2 mb-1"
+					>
+						<i
+							class="pi text-sm mt-1"
+							[class.pi-check-circle]="item.passed"
+							[class.text-green-500]="item.passed"
+							[class.pi-times-circle]="!item.passed"
+							[class.text-red-500]="!item.passed"
+						></i>
+						<div>
+							<span class="text-sm">{{ item.key }}</span>
+							@if (item.note) {
+								<span class="text-xs text-color-secondary ml-1"
+									>({{ item.note }})</span
+								>
+							}
+						</div>
+					</div>
+				}
+			</div>
+		</div>
+	}
+</div>

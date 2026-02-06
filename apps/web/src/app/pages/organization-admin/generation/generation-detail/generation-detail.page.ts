@@ -21,20 +21,35 @@ import {
 	GenerationEvent,
 	GenerationEventType,
 	IterationSnapshot,
+	GeneratedImage,
+	ContinueGenerationRequestDto,
 } from '../../../../shared/models/generation-request.model';
 import { environment } from '../../../../../environments/environment';
 import { PrimeNgModule } from '../../../../shared/primeng.module';
+
+import { RoundCardComponent } from '../components/round-card/round-card.component';
+import { CompletionBannerComponent } from '../components/completion-banner/completion-banner.component';
+import { ContinuationEditorComponent } from '../components/continuation-editor/continuation-editor.component';
 
 @Component({
 	selector: 'app-generation-detail',
 	templateUrl: './generation-detail.page.html',
 	styleUrls: ['./generation-detail.page.scss'],
 	changeDetection: ChangeDetectionStrategy.OnPush,
-	imports: [CommonModule, FormsModule, PrimeNgModule],
+	imports: [
+		CommonModule,
+		FormsModule,
+		PrimeNgModule,
+		RoundCardComponent,
+		CompletionBannerComponent,
+		ContinuationEditorComponent,
+	],
 })
 export class GenerationDetailPage implements OnInit, OnDestroy {
 	request = signal<GenerationRequestDetailed | null>(null);
 	loading = signal(true);
+	images = signal<GeneratedImage[]>([]);
+	continuing = signal(false);
 	events = signal<GenerationEvent[]>([]);
 
 	readonly isActive = computed(() => {
@@ -46,6 +61,15 @@ export class GenerationDetailPage implements OnInit, OnDestroy {
 		);
 	});
 
+	readonly isTerminal = computed(() => {
+		const status = this.request()?.status;
+		return (
+			status === GenerationRequestStatus.COMPLETED ||
+			status === GenerationRequestStatus.FAILED ||
+			status === GenerationRequestStatus.CANCELLED
+		);
+	});
+
 	readonly iterations = computed<IterationSnapshot[]>(() => {
 		return this.request()?.iterations ?? [];
 	});
@@ -54,6 +78,20 @@ export class GenerationDetailPage implements OnInit, OnDestroy {
 		const iters = this.iterations();
 		if (iters.length === 0) return null;
 		return iters[iters.length - 1].aggregateScore;
+	});
+
+	readonly lastPrompt = computed(() => {
+		const iters = this.iterations();
+		if (iters.length === 0) return '';
+		return iters[iters.length - 1].optimizedPrompt ?? '';
+	});
+
+	readonly canContinue = computed(() => {
+		const status = this.request()?.status;
+		return (
+			status === GenerationRequestStatus.COMPLETED ||
+			status === GenerationRequestStatus.FAILED
+		);
 	});
 
 	private organizationId!: string;
@@ -89,6 +127,7 @@ export class GenerationDetailPage implements OnInit, OnDestroy {
 				next: (response) => {
 					this.request.set(response.data ?? null);
 					this.loading.set(false);
+					this.loadImages();
 
 					if (this.isActive()) {
 						this.connectToStream();
@@ -105,8 +144,48 @@ export class GenerationDetailPage implements OnInit, OnDestroy {
 			});
 	}
 
+	loadImages(): void {
+		this.requestService
+			.getImages(this.organizationId, this.requestId)
+			.pipe(takeUntil(this.destroy$))
+			.subscribe({
+				next: (response) => {
+					this.images.set(response.data ?? []);
+				},
+				error: () => {
+					// Images are supplemental, don't block the page
+				},
+			});
+	}
+
 	onBack(): void {
 		this.router.navigate(['/organization/admin/generation']);
+	}
+
+	onContinue(dto: ContinueGenerationRequestDto): void {
+		this.continuing.set(true);
+		this.requestService
+			.continueRequest(this.organizationId, this.requestId, dto)
+			.pipe(takeUntil(this.destroy$))
+			.subscribe({
+				next: () => {
+					this.messageService.add({
+						severity: 'success',
+						summary: 'Continued',
+						detail: 'Generation continued with additional iterations.',
+					});
+					this.continuing.set(false);
+					this.loadRequest();
+				},
+				error: () => {
+					this.messageService.add({
+						severity: 'error',
+						summary: 'Error',
+						detail: 'Failed to continue generation.',
+					});
+					this.continuing.set(false);
+				},
+			});
 	}
 
 	getStatusSeverity(
@@ -176,6 +255,8 @@ export class GenerationDetailPage implements OnInit, OnDestroy {
 							req.currentIteration,
 					};
 				});
+				// Reload images to get the new iteration's images
+				this.loadImages();
 				break;
 
 			case GenerationEventType.COMPLETED:

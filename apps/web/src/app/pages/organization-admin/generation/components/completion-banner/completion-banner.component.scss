@@ -1,0 +1,49 @@
+.completion-banner {
+	border-radius: 8px;
+	padding: 1.25rem;
+	border: 1px solid;
+
+	&.severity-success {
+		background: var(--p-green-50);
+		border-color: var(--p-green-200);
+		color: var(--p-green-700);
+
+		i {
+			color: var(--p-green-500);
+		}
+	}
+
+	&.severity-danger {
+		background: var(--p-red-50);
+		border-color: var(--p-red-200);
+		color: var(--p-red-700);
+
+		i {
+			color: var(--p-red-500);
+		}
+	}
+
+	&.severity-warn {
+		background: var(--p-yellow-50);
+		border-color: var(--p-yellow-200);
+		color: var(--p-yellow-700);
+
+		i {
+			color: var(--p-yellow-500);
+		}
+	}
+
+	&.severity-info {
+		background: var(--p-blue-50);
+		border-color: var(--p-blue-200);
+		color: var(--p-blue-700);
+
+		i {
+			color: var(--p-blue-500);
+		}
+	}
+}
+
+.score-display {
+	min-width: 80px;
+}

@@ -6,6 +6,7 @@ import { SharedModule } from '../../../shared/shared.module';
 import { PrimeNgModule } from '../../../shared/primeng.module';
 
 import { GenerationListPage } from './generation-list.page';
+import { GenerationNewPage } from './generation-new/generation-new.page';
 import { GenerationDetailPage } from './generation-detail/generation-detail.page';
 
 @NgModule({
@@ -19,11 +20,16 @@ import { GenerationDetailPage } from './generation-detail/generation-detail.page
 				component: GenerationListPage,
 			},
 			{
+				path: 'new',
+				component: GenerationNewPage,
+			},
+			{
 				path: ':id',
 				component: GenerationDetailPage,
 			},
 		]),
 		GenerationListPage,
+		GenerationNewPage,
 		GenerationDetailPage,
 	],
 })

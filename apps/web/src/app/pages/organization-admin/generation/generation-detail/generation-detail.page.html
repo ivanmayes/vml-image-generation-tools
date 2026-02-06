@@ -34,11 +34,21 @@
 		</div>
 	</p-toolbar>
 
-	<!-- Brief -->
 	<div class="p-4">
+		<!-- Brief -->
 		<div class="surface-card border-round p-4 mb-4">
 			<h3 class="mt-0 mb-2">Brief</h3>
 			<p class="m-0 line-height-3">{{ req.brief }}</p>
+			@if (req.initialPrompt) {
+			<div class="mt-3">
+				<span class="text-sm font-semibold text-color-secondary"
+					>Initial Prompt:</span
+				>
+				<p class="m-0 mt-1 text-sm font-mono line-height-3">
+					{{ req.initialPrompt }}
+				</p>
+			</div>
+			}
 		</div>
 
 		<!-- Score summary -->
@@ -62,44 +72,64 @@
 		</div>
 		}
 
-		<!-- Timeline placeholder - will be replaced by child components in Batch 3 -->
-		<div class="surface-card border-round p-4 mb-4">
+		<!-- Iteration Timeline -->
+		@if (iterations().length > 0) {
+		<div class="iteration-timeline mb-4">
 			<h3 class="mt-0 mb-3">Iteration Timeline</h3>
-			@if (iterations().length === 0) {
-			<p class="text-color-secondary">
-				No iterations yet. @if (isActive()) { Generation in progress...
-				}
-			</p>
-			} @else {
-			<p-timeline [value]="iterations()" layout="vertical">
-				<ng-template pTemplate="content" let-iteration>
-					<div class="surface-ground border-round p-3 mb-2">
-						<div
-							class="flex align-items-center justify-content-between mb-2"
-						>
-							<span class="font-semibold">
-								Iteration {{ iteration.iterationNumber }}
-							</span>
-							<span class="font-mono text-sm">
-								{{ iteration.aggregateScore }}%
-							</span>
-						</div>
-						@if (iteration.evaluations?.[0]?.topIssue) {
-						<p class="text-sm text-color-secondary m-0">
-							Top issue: {{
-							iteration.evaluations[0].topIssue.problem }}
-						</p>
-						}
-					</div>
-				</ng-template>
-				<ng-template pTemplate="opposite" let-iteration>
-					<small class="text-color-secondary">
-						#{{ iteration.iterationNumber }}
-					</small>
-				</ng-template>
-			</p-timeline>
+			@for (iteration of iterations(); track iteration.iterationNumber;
+			let last = $last) {
+			<div class="timeline-entry mb-3">
+				<app-round-card
+					[iteration]="iteration"
+					[images]="images()"
+					[isLatest]="last"
+				/>
+			</div>
 			}
 		</div>
+		} @else if (isActive()) {
+		<div class="surface-card border-round p-4 mb-4">
+			<div class="flex align-items-center gap-3">
+				<p-progressSpinner
+					[style]="{ width: '32px', height: '32px' }"
+					strokeWidth="4"
+				/>
+				<span class="text-color-secondary">
+					Generation in progress... Waiting for first iteration.
+				</span>
+			</div>
+		</div>
+		}
+
+		<!-- Completion Banner -->
+		@if (isTerminal()) {
+		<div class="mb-4">
+			<app-completion-banner
+				[status]="req.status"
+				[completionReason]="req.completionReason"
+				[finalScore]="latestScore() ?? undefined"
+				[threshold]="req.threshold"
+			/>
+		</div>
+		}
+
+		<!-- Continuation Editor -->
+		@if (canContinue()) {
+		<div class="mb-4">
+			<app-continuation-editor
+				[lastPrompt]="lastPrompt()"
+				[submitting]="continuing()"
+				(continueRequest)="onContinue($event)"
+			/>
+		</div>
+		}
+
+		<!-- Error Message -->
+		@if (req.errorMessage) {
+		<div class="mb-4">
+			<p-message severity="error"> {{ req.errorMessage }} </p-message>
+		</div>
+		}
 	</div>
 	}
 </div>

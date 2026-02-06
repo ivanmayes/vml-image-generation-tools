@@ -1,0 +1,126 @@
+<div class="round-card" [class.is-latest]="isLatest()">
+	<!-- Header -->
+	<div
+		class="round-header flex align-items-center justify-content-between mb-3"
+	>
+		<div class="flex align-items-center gap-2">
+			<span class="round-number">
+				{{ iteration().iterationNumber }}
+			</span>
+			<span class="font-semibold">
+				Iteration {{ iteration().iterationNumber }}
+			</span>
+		</div>
+		<p-tag
+			[value]="iteration().aggregateScore + '%'"
+			[severity]="getScoreSeverity(iteration().aggregateScore)"
+		/>
+	</div>
+
+	<!-- Optimized Prompt (collapsible) -->
+	<div class="prompt-section mb-3">
+		<button
+			class="prompt-toggle flex align-items-center gap-2 cursor-pointer"
+			(click)="togglePrompt()"
+		>
+			<i
+				class="pi"
+				[class.pi-chevron-right]="!showPrompt()"
+				[class.pi-chevron-down]="showPrompt()"
+			></i>
+			<span class="text-sm font-medium">Prompt Used</span>
+		</button>
+		@if (showPrompt()) {
+			<div class="prompt-content mt-2 p-3 surface-ground border-round">
+				<p class="m-0 text-sm line-height-3 font-mono">
+					{{ iteration().optimizedPrompt }}
+				</p>
+			</div>
+		}
+	</div>
+
+	<!-- Image Grid -->
+	@if (getIterationImages().length > 0) {
+		<div class="image-grid mb-3">
+			@for (image of getIterationImages(); track image.id) {
+				<div
+					class="image-cell"
+					[class.selected]="image.id === iteration().selectedImageId"
+				>
+					<p-image
+						[src]="image.imageUrl"
+						[alt]="'Iteration ' + iteration().iterationNumber"
+						[preview]="true"
+						width="100%"
+					/>
+					@if (image.id === iteration().selectedImageId) {
+						<div class="selected-badge">
+							<i class="pi pi-check"></i>
+						</div>
+					}
+				</div>
+			}
+		</div>
+	}
+
+	<!-- Top Issue -->
+	@if (iteration().evaluations?.[0]?.topIssue; as topIssue) {
+		<div class="top-issue surface-ground border-round p-3 mb-3">
+			<div class="flex align-items-center gap-2 mb-1">
+				<i class="pi pi-exclamation-triangle text-orange-500"></i>
+				<span class="text-sm font-semibold">Top Issue</span>
+				<p-tag
+					[value]="topIssue.severity"
+					[severity]="
+						topIssue.severity === 'critical'
+							? 'danger'
+							: topIssue.severity === 'major'
+								? 'warn'
+								: 'info'
+					"
+					class="text-xs"
+				/>
+			</div>
+			<p class="text-sm m-0 mb-1">{{ topIssue.problem }}</p>
+			<p class="text-sm text-color-secondary m-0">
+				<strong>Fix:</strong> {{ topIssue.fix }}
+			</p>
+		</div>
+	}
+
+	<!-- Judge Evaluations -->
+	@if (iteration().evaluations?.length) {
+		<div class="evaluations">
+			<p-accordion [multiple]="true">
+				@for (
+					evaluation of iteration().evaluations;
+					track evaluation.agentId;
+					let i = $index
+				) {
+					<p-accordion-panel [value]="'' + i">
+						<p-accordion-header>
+							<div
+								class="flex align-items-center justify-content-between w-full pr-3"
+							>
+								<span class="font-medium">{{
+									evaluation.agentName
+								}}</span>
+								<p-tag
+									[value]="evaluation.overallScore + '%'"
+									[severity]="
+										getScoreSeverity(
+											evaluation.overallScore
+										)
+									"
+								/>
+							</div>
+						</p-accordion-header>
+						<p-accordion-content>
+							<app-judge-feedback [evaluation]="evaluation" />
+						</p-accordion-content>
+					</p-accordion-panel>
+				}
+			</p-accordion>
+		</div>
+	}
+</div>

@@ -1,0 +1,61 @@
+<div class="continuation-editor surface-card border-round p-4">
+	<div
+		class="flex align-items-center justify-content-between cursor-pointer"
+		(click)="toggle()"
+	>
+		<div class="flex align-items-center gap-2">
+			<i class="pi pi-refresh"></i>
+			<h3 class="m-0">Continue Generation</h3>
+		</div>
+		<i
+			class="pi"
+			[class.pi-chevron-down]="!expanded()"
+			[class.pi-chevron-up]="expanded()"
+		></i>
+	</div>
+
+	@if (expanded()) {
+		<div class="mt-3">
+			<!-- Prompt Override -->
+			<div class="field mb-3">
+				<label class="block text-sm font-semibold mb-2"
+					>Prompt (editable)</label
+				>
+				<textarea
+					pTextarea
+					[(ngModel)]="promptOverride"
+					rows="4"
+					class="w-full"
+					placeholder="Edit the prompt for continued generation..."
+				></textarea>
+				<small class="text-color-secondary"
+					>Modify the prompt to guide the next round of
+					iterations.</small
+				>
+			</div>
+
+			<!-- Additional Iterations -->
+			<div class="field mb-3">
+				<label class="block text-sm font-semibold mb-2"
+					>Additional Iterations</label
+				>
+				<p-inputNumber
+					[(ngModel)]="additionalIterations"
+					[min]="1"
+					[max]="20"
+					[showButtons]="true"
+				/>
+			</div>
+
+			<!-- Submit -->
+			<div class="flex justify-content-end">
+				<p-button
+					label="Continue"
+					icon="pi pi-play"
+					(onClick)="onContinue()"
+					[loading]="submitting()"
+				/>
+			</div>
+		</div>
+	}
+</div>

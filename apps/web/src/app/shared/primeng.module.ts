@@ -65,6 +65,7 @@ import { StepperModule } from 'primeng/stepper';
 import { ScrollPanelModule } from 'primeng/scrollpanel';
 import { GalleriaModule } from 'primeng/galleria';
 import { KnobModule } from 'primeng/knob';
+import { MultiSelectModule } from 'primeng/multiselect';
 
 // Services
 import { MessageService, ConfirmationService } from 'primeng/api';
@@ -132,6 +133,7 @@ const primeNgModules = [
 	ScrollPanelModule,
 	GalleriaModule,
 	KnobModule,
+	MultiSelectModule,
 ];
 
 @NgModule({
