@@ -1,0 +1,105 @@
+<div class="generation-detail-page">
+	<!-- Loading skeleton -->
+	@if (loading()) {
+	<div class="p-4">
+		<p-skeleton width="200px" height="2rem" class="mb-3" />
+		<p-skeleton width="100%" height="4rem" class="mb-3" />
+		<p-skeleton width="100%" height="300px" />
+	</div>
+	} @else if (request(); as req) {
+	<!-- Header -->
+	<p-toolbar>
+		<div class="p-toolbar-group-start flex align-items-center gap-3">
+			<p-button
+				icon="pi pi-arrow-left"
+				[text]="true"
+				(onClick)="onBack()"
+			/>
+			<h2 class="m-0">Generation Request</h2>
+			<p-tag
+				[value]="req.status"
+				[severity]="getStatusSeverity(req.status)"
+			/>
+		</div>
+		<div class="p-toolbar-group-end flex align-items-center gap-2">
+			<span class="text-sm text-color-secondary">
+				Iteration {{ req.currentIteration }} / {{ req.maxIterations }}
+			</span>
+			@if (isActive()) {
+			<p-progressSpinner
+				[style]="{ width: '24px', height: '24px' }"
+				strokeWidth="4"
+			/>
+			}
+		</div>
+	</p-toolbar>
+
+	<!-- Brief -->
+	<div class="p-4">
+		<div class="surface-card border-round p-4 mb-4">
+			<h3 class="mt-0 mb-2">Brief</h3>
+			<p class="m-0 line-height-3">{{ req.brief }}</p>
+		</div>
+
+		<!-- Score summary -->
+		@if (latestScore() !== null) {
+		<div class="surface-card border-round p-4 mb-4">
+			<div class="flex align-items-center gap-4">
+				<p-knob
+					[ngModel]="latestScore()!"
+					[readonly]="true"
+					[size]="100"
+					[strokeWidth]="8"
+					valueTemplate="{value}%"
+				/>
+				<div>
+					<h3 class="mt-0 mb-1">Latest Score</h3>
+					<p class="text-color-secondary m-0">
+						Threshold: {{ req.threshold }}%
+					</p>
+				</div>
+			</div>
+		</div>
+		}
+
+		<!-- Timeline placeholder - will be replaced by child components in Batch 3 -->
+		<div class="surface-card border-round p-4 mb-4">
+			<h3 class="mt-0 mb-3">Iteration Timeline</h3>
+			@if (iterations().length === 0) {
+			<p class="text-color-secondary">
+				No iterations yet. @if (isActive()) { Generation in progress...
+				}
+			</p>
+			} @else {
+			<p-timeline [value]="iterations()" layout="vertical">
+				<ng-template pTemplate="content" let-iteration>
+					<div class="surface-ground border-round p-3 mb-2">
+						<div
+							class="flex align-items-center justify-content-between mb-2"
+						>
+							<span class="font-semibold">
+								Iteration {{ iteration.iterationNumber }}
+							</span>
+							<span class="font-mono text-sm">
+								{{ iteration.aggregateScore }}%
+							</span>
+						</div>
+						@if (iteration.evaluations?.[0]?.topIssue) {
+						<p class="text-sm text-color-secondary m-0">
+							Top issue: {{
+							iteration.evaluations[0].topIssue.problem }}
+						</p>
+						}
+					</div>
+				</ng-template>
+				<ng-template pTemplate="opposite" let-iteration>
+					<small class="text-color-secondary">
+						#{{ iteration.iterationNumber }}
+					</small>
+				</ng-template>
+			</p-timeline>
+			}
+		</div>
+	</div>
+	}
+</div>

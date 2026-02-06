@@ -1,0 +1,107 @@
+<div class="generation-list-page">
+	<p-toolbar>
+		<div class="p-toolbar-group-start">
+			<h2 class="m-0">Image Generation</h2>
+		</div>
+		<div class="p-toolbar-group-end">
+			<p-select
+				[options]="statuses"
+				[ngModel]="statusFilter()"
+				(ngModelChange)="onStatusFilterChange($event)"
+				placeholder="All Statuses"
+				[showClear]="true"
+				class="mr-2"
+			/>
+			<p-button
+				label="New Request"
+				icon="pi pi-plus"
+				(onClick)="onCreateNew()"
+			/>
+		</div>
+	</p-toolbar>
+
+	<!-- Loading skeleton -->
+	@if (loading()) {
+	<div class="mt-4">
+		@for (row of skeletonRows; track $index) {
+		<div
+			class="flex align-items-center gap-3 mb-3 p-3 surface-card border-round"
+		>
+			<p-skeleton width="60%" height="1.2rem" />
+			<p-skeleton width="80px" height="1.5rem" borderRadius="16px" />
+			<p-skeleton width="100px" height="1rem" />
+		</div>
+		}
+	</div>
+	}
+
+	<!-- Request list -->
+	@if (!loading()) { @if (requests().length === 0) {
+	<div
+		class="flex flex-column align-items-center justify-content-center py-8"
+	>
+		<i class="pi pi-images text-4xl text-color-secondary mb-3"></i>
+		<p class="text-color-secondary">No generation requests found.</p>
+		<p-button
+			label="Create your first request"
+			icon="pi pi-plus"
+			[outlined]="true"
+			(onClick)="onCreateNew()"
+		/>
+	</div>
+	} @else {
+	<p-table
+		[value]="requests()"
+		[rows]="10"
+		[paginator]="true"
+		[rowHover]="true"
+		styleClass="mt-4"
+		(onRowSelect)="onRowSelect($event)"
+		selectionMode="single"
+	>
+		<ng-template pTemplate="header">
+			<tr>
+				<th>Brief</th>
+				<th style="width: 120px">Status</th>
+				<th style="width: 100px">Progress</th>
+				<th style="width: 80px">Score</th>
+				<th style="width: 160px">Created</th>
+			</tr>
+		</ng-template>
+		<ng-template pTemplate="body" let-request>
+			<tr [pSelectableRow]="request" class="cursor-pointer">
+				<td>
+					<span class="font-semibold"
+						>{{ request.brief | slice:0:80 }}</span
+					>
+					@if (request.brief.length > 80) {
+					<span class="text-color-secondary">...</span>
+					}
+				</td>
+				<td>
+					<p-tag
+						[value]="request.status"
+						[severity]="getStatusSeverity(request.status)"
+					/>
+				</td>
+				<td>
+					<span class="text-sm">
+						{{ request.currentIteration }} / {{
+						request.maxIterations }}
+					</span>
+				</td>
+				<td>
+					<span class="font-mono text-sm">
+						{{ request.threshold }}%
+					</span>
+				</td>
+				<td>
+					<span class="text-sm text-color-secondary">
+						{{ request.createdAt | date:'short' }}
+					</span>
+				</td>
+			</tr>
+		</ng-template>
+	</p-table>
+	} }
+</div>

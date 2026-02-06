@@ -30,6 +30,13 @@ const routes: Routes = [
 					),
 			},
 			{
+				path: 'generation',
+				loadChildren: () =>
+					import('./generation/generation.module').then(
+						(m) => m.GenerationPageModule,
+					),
+			},
+			{
 				path: 'settings',
 				loadChildren: () =>
 					import('./settings/settings.module').then(

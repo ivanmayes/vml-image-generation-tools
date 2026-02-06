@@ -9,14 +9,12 @@ import {
 	HttpException,
 	HttpStatus,
 	Req,
-	Res,
 	Query,
 	Sse,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
-import { Response } from 'express';
 
 import { Roles } from '../../user/auth/roles.decorator';
 import { RolesGuard } from '../../user/auth/roles.guard';
@@ -120,7 +118,6 @@ export class GenerationRequestController {
 		@Param('id') id: string,
 		@Query('token') token: string,
 		@Req() req: Request,
-		@Res() res: Response,
 	): Promise<Observable<SseMessageEvent>> {
 		// Auth via query param since EventSource can't send headers
 		if (!token) {

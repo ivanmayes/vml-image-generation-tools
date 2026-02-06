@@ -31,6 +31,11 @@ export class OrganizationAdminPage {
 			routerLink: '/organization/admin/judges',
 		},
 		{
+			label: 'Generation',
+			icon: 'pi pi-images',
+			routerLink: '/organization/admin/generation',
+		},
+		{
 			label: 'Settings',
 			icon: 'pi pi-cog',
 			routerLink: '/organization/admin/settings',
