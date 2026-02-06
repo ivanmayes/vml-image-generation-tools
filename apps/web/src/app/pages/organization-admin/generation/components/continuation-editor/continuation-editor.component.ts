@@ -4,11 +4,12 @@ import {
 	input,
 	output,
 	signal,
+	OnInit,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import type { RequestContinueDto } from '@api/image-generation/generation-request/dtos';
 
-import { ContinueGenerationRequestDto } from '../../../../../shared/models/generation-request.model';
 import { PrimeNgModule } from '../../../../../shared/primeng.module';
 
 @Component({
@@ -18,11 +19,11 @@ import { PrimeNgModule } from '../../../../../shared/primeng.module';
 	changeDetection: ChangeDetectionStrategy.OnPush,
 	imports: [CommonModule, FormsModule, PrimeNgModule],
 })
-export class ContinuationEditorComponent {
+export class ContinuationEditorComponent implements OnInit {
 	lastPrompt = input<string>('');
 	submitting = input(false);
 
-	continueRequest = output<ContinueGenerationRequestDto>();
+	continueRequest = output<RequestContinueDto>();
 
 	promptOverride = '';
 	additionalIterations = 5;
@@ -37,7 +38,7 @@ export class ContinuationEditorComponent {
 	}
 
 	onContinue(): void {
-		const dto: ContinueGenerationRequestDto = {
+		const dto: RequestContinueDto = {
 			additionalIterations: this.additionalIterations,
 		};
 		if (this.promptOverride.trim() !== this.lastPrompt()) {

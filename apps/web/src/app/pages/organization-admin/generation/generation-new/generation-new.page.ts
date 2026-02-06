@@ -11,11 +11,11 @@ import { Router } from '@angular/router';
 import { MessageService } from 'primeng/api';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
+import type { RequestCreateDto } from '@api/image-generation/generation-request/dtos';
 
 import { AgentService } from '../../../../shared/services/agent.service';
 import { GenerationRequestService } from '../../../../shared/services/generation-request.service';
 import { Agent } from '../../../../shared/models/agent.model';
-import { CreateGenerationRequestDto } from '../../../../shared/models/generation-request.model';
 import { environment } from '../../../../../environments/environment';
 import { PrimeNgModule } from '../../../../shared/primeng.module';
 
@@ -90,7 +90,7 @@ export class GenerationNewPage implements OnInit, OnDestroy {
 
 		this.submitting.set(true);
 
-		const dto: CreateGenerationRequestDto = {
+		const dto: RequestCreateDto = {
 			brief: this.brief.trim(),
 			judgeIds: this.selectedJudgeIds,
 			maxIterations: this.maxIterations,

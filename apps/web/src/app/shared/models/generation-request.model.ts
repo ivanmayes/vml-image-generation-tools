@@ -119,24 +119,3 @@ export interface GenerationEvent {
 	data: Record<string, unknown>;
 	timestamp: string;
 }
-
-// Request creation DTO
-export interface CreateGenerationRequestDto {
-	brief: string;
-	initialPrompt?: string;
-	projectId?: string;
-	spaceId?: string;
-	referenceImageUrls?: string[];
-	negativePrompts?: string;
-	judgeIds: string[];
-	imageParams?: Partial<ImageParams>;
-	threshold?: number;
-	maxIterations?: number;
-}
-
-// Request continuation DTO
-export interface ContinueGenerationRequestDto {
-	promptOverride?: string;
-	additionalIterations?: number;
-	judgeIds?: string[];
-}

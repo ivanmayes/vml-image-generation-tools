@@ -22,6 +22,9 @@
 			/>
 		</div>
 		<div class="p-toolbar-group-end flex align-items-center gap-2">
+			@if (sseConnected()) {
+			<p-tag value="Live" severity="success" [rounded]="true" />
+			}
 			<span class="text-sm text-color-secondary">
 				Iteration {{ req.currentIteration }} / {{ req.maxIterations }}
 			</span>
@@ -86,6 +89,7 @@
 				/>
 			</div>
 			}
+			<div #timelineEnd></div>
 		</div>
 		} @else if (isActive()) {
 		<div class="surface-card border-round p-4 mb-4">

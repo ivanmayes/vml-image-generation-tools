@@ -5,6 +5,9 @@ import {
 	OnDestroy,
 	signal,
 	computed,
+	ElementRef,
+	ViewChild,
+	AfterViewChecked,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -12,9 +15,11 @@ import { FormsModule } from '@angular/forms';
 import { MessageService } from 'primeng/api';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
+import type { RequestContinueDto } from '@api/image-generation/generation-request/dtos';
 
 import { GenerationRequestService } from '../../../../shared/services/generation-request.service';
 import { GenerationEventsService } from '../../../../shared/services/generation-events.service';
+import { SessionQuery } from '../../../../state/session/session.query';
 import {
 	GenerationRequestDetailed,
 	GenerationRequestStatus,
@@ -22,11 +27,9 @@ import {
 	GenerationEventType,
 	IterationSnapshot,
 	GeneratedImage,
-	ContinueGenerationRequestDto,
 } from '../../../../shared/models/generation-request.model';
 import { environment } from '../../../../../environments/environment';
 import { PrimeNgModule } from '../../../../shared/primeng.module';
-
 import { RoundCardComponent } from '../components/round-card/round-card.component';
 import { CompletionBannerComponent } from '../components/completion-banner/completion-banner.component';
 import { ContinuationEditorComponent } from '../components/continuation-editor/continuation-editor.component';
@@ -45,12 +48,19 @@ import { ContinuationEditorComponent } from '../components/continuation-editor/c
 		ContinuationEditorComponent,
 	],
 })
-export class GenerationDetailPage implements OnInit, OnDestroy {
+export class GenerationDetailPage
+	implements OnInit, OnDestroy, AfterViewChecked
+{
+	@ViewChild('timelineEnd') timelineEnd?: ElementRef<HTMLDivElement>;
+
 	request = signal<GenerationRequestDetailed | null>(null);
 	loading = signal(true);
 	images = signal<GeneratedImage[]>([]);
 	continuing = signal(false);
 	events = signal<GenerationEvent[]>([]);
+	sseConnected = signal(false);
+
+	private shouldAutoScroll = false;
 
 	readonly isActive = computed(() => {
 		const status = this.request()?.status;
@@ -103,6 +113,7 @@ export class GenerationDetailPage implements OnInit, OnDestroy {
 		private readonly router: Router,
 		private readonly requestService: GenerationRequestService,
 		private readonly eventsService: GenerationEventsService,
+		private readonly sessionQuery: SessionQuery,
 		private readonly messageService: MessageService,
 	) {}
 
@@ -116,6 +127,16 @@ export class GenerationDetailPage implements OnInit, OnDestroy {
 		this.eventsService.disconnect(this.requestId);
 		this.destroy$.next();
 		this.destroy$.complete();
+	}
+
+	ngAfterViewChecked(): void {
+		if (this.shouldAutoScroll && this.timelineEnd) {
+			this.timelineEnd.nativeElement.scrollIntoView({
+				behavior: 'smooth',
+				block: 'end',
+			});
+			this.shouldAutoScroll = false;
+		}
 	}
 
 	loadRequest(): void {
@@ -162,7 +183,7 @@ export class GenerationDetailPage implements OnInit, OnDestroy {
 		this.router.navigate(['/organization/admin/generation']);
 	}
 
-	onContinue(dto: ContinueGenerationRequestDto): void {
+	onContinue(dto: RequestContinueDto): void {
 		this.continuing.set(true);
 		this.requestService
 			.continueRequest(this.organizationId, this.requestId, dto)
@@ -210,16 +231,18 @@ export class GenerationDetailPage implements OnInit, OnDestroy {
 	}
 
 	private connectToStream(): void {
-		const token = ''; // TODO: inject auth token
+		const token = this.sessionQuery.getToken() ?? '';
 		this.eventsService
 			.connect(this.organizationId, this.requestId, token)
 			.pipe(takeUntil(this.destroy$))
 			.subscribe({
 				next: (event) => {
+					this.sseConnected.set(true);
 					this.events.update((prev) => [...prev, event]);
 					this.handleEvent(event);
 				},
 				error: () => {
+					this.sseConnected.set(false);
 					this.messageService.add({
 						severity: 'warn',
 						summary: 'Connection Lost',
@@ -231,6 +254,18 @@ export class GenerationDetailPage implements OnInit, OnDestroy {
 
 	private handleEvent(event: GenerationEvent): void {
 		switch (event.type) {
+			case GenerationEventType.INITIAL_STATE:
+				// Full state sync on SSE connect — replace current data
+				if (event.data['request']) {
+					this.request.set(
+						event.data['request'] as GenerationRequestDetailed,
+					);
+				}
+				if (event.data['images']) {
+					this.images.set(event.data['images'] as GeneratedImage[]);
+				}
+				break;
+
 			case GenerationEventType.STATUS_CHANGE:
 				this.request.update((req) => {
 					if (!req) return req;
@@ -255,13 +290,15 @@ export class GenerationDetailPage implements OnInit, OnDestroy {
 							req.currentIteration,
 					};
 				});
-				// Reload images to get the new iteration's images
+				// Reload images and auto-scroll to new iteration
 				this.loadImages();
+				this.shouldAutoScroll = true;
 				break;
 
 			case GenerationEventType.COMPLETED:
 			case GenerationEventType.FAILED:
 				this.loadRequest();
+				this.sseConnected.set(false);
 				break;
 		}
 	}

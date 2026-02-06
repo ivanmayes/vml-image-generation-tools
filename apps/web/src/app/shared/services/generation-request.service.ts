@@ -1,6 +1,10 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import type {
+	RequestCreateDto,
+	RequestContinueDto,
+} from '@api/image-generation/generation-request/dtos';
 
 import { environment } from '../../../environments/environment';
 import {
@@ -8,8 +12,6 @@ import {
 	GenerationRequestDetailed,
 	GenerationRequestStatus,
 	GeneratedImage,
-	CreateGenerationRequestDto,
-	ContinueGenerationRequestDto,
 } from '../models/generation-request.model';
 
 interface ApiResponse<T> {
@@ -92,7 +94,7 @@ export class GenerationRequestService {
 	 */
 	createRequest(
 		orgId: string,
-		dto: CreateGenerationRequestDto,
+		dto: RequestCreateDto,
 	): Observable<ApiResponse<GenerationRequestPublic>> {
 		return this.http.post<ApiResponse<GenerationRequestPublic>>(
 			this.basePath(orgId),
@@ -107,7 +109,7 @@ export class GenerationRequestService {
 	continueRequest(
 		orgId: string,
 		requestId: string,
-		dto: ContinueGenerationRequestDto,
+		dto: RequestContinueDto,
 	): Observable<ApiResponse<GenerationRequestPublic>> {
 		return this.http.post<ApiResponse<GenerationRequestPublic>>(
 			`${this.basePath(orgId)}/${requestId}/continue`,
