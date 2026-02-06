@@ -1,0 +1,125 @@
+<div class="judges-page">
+	<h1 class="mb-4">Judges Management</h1>
+
+	<p-toolbar styleClass="mb-4">
+		<ng-template pTemplate="start">
+			<p-iconfield iconPosition="left">
+				<p-inputicon styleClass="pi pi-search"></p-inputicon>
+				<input
+					pInputText
+					type="text"
+					(input)="onSearch($event)"
+					placeholder="Search judges..."
+					class="w-80"
+				/>
+			</p-iconfield>
+		</ng-template>
+		<ng-template pTemplate="end">
+			<button
+				pButton
+				label="Create Judge"
+				icon="pi pi-plus"
+				(click)="navigateToCreate()"
+				aria-label="Create Judge"
+			></button>
+		</ng-template>
+	</p-toolbar>
+
+	<p-table
+		[value]="loading() ? skeletonRows : agents()"
+		[paginator]="true"
+		[rows]="10"
+		[showCurrentPageReport]="true"
+		currentPageReportTemplate="Showing {first} to {last} of {totalRecords} judges"
+		styleClass="p-datatable-striped"
+		(onSort)="onSort($event)"
+	>
+		<ng-template pTemplate="header">
+			<tr>
+				<th [pSortableColumn]="'name'" class="cursor-pointer">
+					Name <p-sortIcon [field]="'name'"></p-sortIcon>
+				</th>
+				<th>Optimization Weight</th>
+				<th>Scoring Weight</th>
+				<th [pSortableColumn]="'created'" class="cursor-pointer">
+					Created <p-sortIcon [field]="'created'"></p-sortIcon>
+				</th>
+				<th style="width: 150px">Actions</th>
+			</tr>
+		</ng-template>
+
+		<ng-template pTemplate="body" let-agent>
+			@if (!loading()) {
+			<tr>
+				<td>
+					<button
+						type="button"
+						class="judge-name-link p-link"
+						(click)="navigateToDetail(agent.id)"
+					>
+						{{ agent.name }}
+					</button>
+				</td>
+				<td>{{ agent.optimizationWeight }}</td>
+				<td>{{ agent.scoringWeight }}</td>
+				<td>{{ formatDate(agent.createdAt) }}</td>
+				<td>
+					<div class="action-buttons">
+						<button
+							pButton
+							icon="pi pi-pencil"
+							class="p-button-rounded p-button-text p-button-sm"
+							pTooltip="Edit Judge"
+							aria-label="Edit Judge"
+							(click)="navigateToDetail(agent.id)"
+						></button>
+						<button
+							pButton
+							icon="pi pi-trash"
+							class="p-button-rounded p-button-text p-button-sm p-button-danger"
+							pTooltip="Delete Judge"
+							aria-label="Delete Judge"
+							(click)="deleteAgent(agent)"
+						></button>
+					</div>
+				</td>
+			</tr>
+			} @else {
+			<tr>
+				<td><p-skeleton /></td>
+				<td><p-skeleton /></td>
+				<td><p-skeleton /></td>
+				<td><p-skeleton /></td>
+				<td><p-skeleton /></td>
+			</tr>
+			}
+		</ng-template>
+
+		<ng-template pTemplate="emptymessage">
+			<tr>
+				<td colspan="5" class="text-center">
+					<div class="empty-state">
+						<i
+							class="pi pi-inbox"
+							style="
+								font-size: 3rem;
+								color: var(--text-color-secondary);
+							"
+						></i>
+						<p>No judges found</p>
+						<button
+							pButton
+							label="Create a Judge"
+							icon="pi pi-plus"
+							(click)="navigateToCreate()"
+							aria-label="Create a Judge"
+						></button>
+					</div>
+				</td>
+			</tr>
+		</ng-template>
+	</p-table>
+</div>
+
+<p-confirmDialog></p-confirmDialog>
+<p-toast></p-toast>
