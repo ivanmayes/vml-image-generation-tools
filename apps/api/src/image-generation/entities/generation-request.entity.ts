@@ -145,6 +145,9 @@ export class GenerationRequest {
 	@Column('text')
 	brief!: string;
 
+	@Column('text', { nullable: true })
+	initialPrompt?: string;
+
 	@Column('jsonb', { nullable: true })
 	referenceImageUrls?: string[];
 
@@ -262,6 +265,7 @@ export class GenerationRequest {
 	public toDetailed() {
 		return {
 			...this.toPublic(),
+			initialPrompt: this.initialPrompt,
 			referenceImageUrls: this.referenceImageUrls,
 			negativePrompts: this.negativePrompts,
 			judgeIds: this.judgeIds,

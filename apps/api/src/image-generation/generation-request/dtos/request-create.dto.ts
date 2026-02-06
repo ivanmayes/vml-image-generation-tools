@@ -47,6 +47,10 @@ export class RequestCreateDto {
 	brief!: string;
 
 	@IsOptional()
+	@IsString()
+	initialPrompt?: string;
+
+	@IsOptional()
 	@IsArray()
 	@IsString({ each: true })
 	referenceImageUrls?: string[];

@@ -9,9 +9,14 @@ import {
 	HttpException,
 	HttpStatus,
 	Req,
+	Res,
 	Query,
+	Sse,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
+import { Response } from 'express';
 
 import { Roles } from '../../user/auth/roles.decorator';
 import { RolesGuard } from '../../user/auth/roles.guard';
@@ -22,13 +27,18 @@ import { ResponseEnvelope, ResponseStatus } from '../../_core/models';
 import { AgentService } from '../agent/agent.service';
 import { JobQueueService } from '../jobs/job-queue.service';
 import {
+	GenerationEventsService,
+	GenerationEventType,
+	SseMessageEvent,
+} from '../orchestration/generation-events.service';
+import {
 	GenerationRequest,
 	GenerationRequestStatus,
 	GeneratedImage,
 } from '../entities';
 
 import { GenerationRequestService } from './generation-request.service';
-import { RequestCreateDto } from './dtos';
+import { RequestCreateDto, RequestContinueDto } from './dtos';
 
 const basePath = 'organization/:orgId/image-generation/requests';
 
@@ -38,6 +48,7 @@ export class GenerationRequestController {
 		private readonly requestService: GenerationRequestService,
 		private readonly agentService: AgentService,
 		private readonly jobQueueService: JobQueueService,
+		private readonly generationEventsService: GenerationEventsService,
 	) {}
 
 	@Get()
@@ -103,6 +114,65 @@ export class GenerationRequestController {
 		);
 	}
 
+	@Sse(':id/stream')
+	public async streamRequest(
+		@Param('orgId') orgId: string,
+		@Param('id') id: string,
+		@Query('token') token: string,
+		@Req() req: Request,
+		@Res() res: Response,
+	): Promise<Observable<SseMessageEvent>> {
+		// Auth via query param since EventSource can't send headers
+		if (!token) {
+			throw new HttpException(
+				new ResponseEnvelope(
+					ResponseStatus.Failure,
+					'Authentication token required as query parameter.',
+				),
+				HttpStatus.UNAUTHORIZED,
+			);
+		}
+
+		const request = await this.requestService.findOne({
+			where: { id, organizationId: orgId },
+		});
+
+		if (!request) {
+			throw new HttpException(
+				new ResponseEnvelope(
+					ResponseStatus.Failure,
+					'Request not found.',
+				),
+				HttpStatus.NOT_FOUND,
+			);
+		}
+
+		// Send full current state as first event (solves race condition)
+		const images = await this.requestService.getImagesByRequest(id);
+		this.generationEventsService.emit(
+			id,
+			GenerationEventType.INITIAL_STATE,
+			{
+				request: new GenerationRequest(request).toDetailed(),
+				images: images.map((img) => new GeneratedImage(img).toPublic()),
+			},
+		);
+
+		// Detect client disconnect for cleanup
+		(req as any).on('close', () => {
+			// Cleanup is handled by the Observable finalize in GenerationEventsService
+		});
+
+		// Subscribe to SSE events and map to MessageEvent format
+		return this.generationEventsService.subscribe(id).pipe(
+			map((event) => ({
+				data: event,
+				type: event.type,
+				id: `${id}-${Date.now()}`,
+			})),
+		);
+	}
+
 	@Post()
 	@Roles(UserRole.SuperAdmin, UserRole.Admin)
 	@UseGuards(AuthGuard(), RolesGuard, HasOrganizationAccessGuard)
@@ -143,6 +213,7 @@ export class GenerationRequestController {
 				projectId: createDto.projectId,
 				spaceId: createDto.spaceId,
 				brief: createDto.brief,
+				initialPrompt: createDto.initialPrompt,
 				referenceImageUrls: createDto.referenceImageUrls,
 				negativePrompts: createDto.negativePrompts,
 				judgeIds: createDto.judgeIds,
@@ -292,6 +363,62 @@ export class GenerationRequestController {
 			ResponseStatus.Success,
 			'Request triggered for processing.',
 			new GenerationRequest(request).toPublic(),
+		);
+	}
+
+	@Post(':id/continue')
+	@Roles(UserRole.SuperAdmin, UserRole.Admin)
+	@UseGuards(AuthGuard(), RolesGuard, HasOrganizationAccessGuard)
+	public async continueRequest(
+		@Param('orgId') orgId: string,
+		@Param('id') id: string,
+		@Body() continueDto: RequestContinueDto,
+	) {
+		const request = await this.requestService.findOne({
+			where: { id, organizationId: orgId },
+		});
+
+		if (!request) {
+			throw new HttpException(
+				new ResponseEnvelope(
+					ResponseStatus.Failure,
+					'Request not found.',
+				),
+				HttpStatus.NOT_FOUND,
+			);
+		}
+
+		// Can only continue completed or failed requests
+		const continuableStatuses = [
+			GenerationRequestStatus.COMPLETED,
+			GenerationRequestStatus.FAILED,
+		];
+
+		if (!continuableStatuses.includes(request.status)) {
+			throw new HttpException(
+				new ResponseEnvelope(
+					ResponseStatus.Failure,
+					`Cannot continue request with status: ${request.status}`,
+				),
+				HttpStatus.BAD_REQUEST,
+			);
+		}
+
+		// Prepare request for continuation
+		const updated = await this.requestService.prepareForContinuation(
+			id,
+			continueDto.additionalIterations ?? 5,
+			continueDto.judgeIds,
+			continueDto.promptOverride,
+		);
+
+		// Queue for processing
+		await this.jobQueueService.queueGenerationRequest(id, orgId);
+
+		return new ResponseEnvelope(
+			ResponseStatus.Success,
+			'Request continued and queued for processing.',
+			new GenerationRequest(updated).toPublic(),
 		);
 	}
 

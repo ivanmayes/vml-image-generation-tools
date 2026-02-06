@@ -60,6 +60,11 @@ import { ImageModule } from 'primeng/image';
 import { TagModule } from 'primeng/tag';
 import { ColorPickerModule } from 'primeng/colorpicker';
 import { SkeletonModule } from 'primeng/skeleton';
+import { TimelineModule } from 'primeng/timeline';
+import { StepperModule } from 'primeng/stepper';
+import { ScrollPanelModule } from 'primeng/scrollpanel';
+import { GalleriaModule } from 'primeng/galleria';
+import { KnobModule } from 'primeng/knob';
 
 // Services
 import { MessageService, ConfirmationService } from 'primeng/api';
@@ -120,6 +125,13 @@ const primeNgModules = [
 	TagModule,
 	ColorPickerModule,
 	SkeletonModule,
+
+	// Timeline/Generation Components
+	TimelineModule,
+	StepperModule,
+	ScrollPanelModule,
+	GalleriaModule,
+	KnobModule,
 ];
 
 @NgModule({

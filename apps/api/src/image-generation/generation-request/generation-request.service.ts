@@ -225,6 +225,7 @@ export class GenerationRequestService {
 		id: string,
 		additionalIterations: number,
 		judgeIds?: string[],
+		promptOverride?: string,
 	): Promise<GenerationRequest> {
 		const request = await this.requestRepository.findOne({ where: { id } });
 
@@ -246,6 +247,11 @@ export class GenerationRequestService {
 		// Swap judges if provided
 		if (judgeIds?.length) {
 			request.judgeIds = judgeIds;
+		}
+
+		// Set prompt override for next iteration
+		if (promptOverride) {
+			request.initialPrompt = promptOverride;
 		}
 
 		return this.requestRepository.save(request);

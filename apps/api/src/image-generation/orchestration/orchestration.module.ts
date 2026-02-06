@@ -12,6 +12,7 @@ import { GeminiImageService } from './gemini-image.service';
 import { EvaluationService } from './evaluation.service';
 import { OrchestrationService } from './orchestration.service';
 import { DebugOutputService } from './debug-output.service';
+import { GenerationEventsService } from './generation-events.service';
 import { EvaluateController } from './evaluate.controller';
 
 @Module({
@@ -30,12 +31,14 @@ import { EvaluateController } from './evaluate.controller';
 		EvaluationService,
 		OrchestrationService,
 		DebugOutputService,
+		GenerationEventsService,
 	],
 	exports: [
 		OrchestrationService,
 		EvaluationService,
 		GeminiImageService,
 		DebugOutputService,
+		GenerationEventsService,
 	],
 })
 export class OrchestrationModule {}

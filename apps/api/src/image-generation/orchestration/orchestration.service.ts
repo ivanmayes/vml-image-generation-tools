@@ -16,6 +16,10 @@ import { JobQueueService } from '../jobs/job-queue.service';
 import { GeminiImageService } from './gemini-image.service';
 import { EvaluationService, EvaluationResult } from './evaluation.service';
 import { DebugOutputService, DebugIterationData } from './debug-output.service';
+import {
+	GenerationEventsService,
+	GenerationEventType,
+} from './generation-events.service';
 
 /** Maximum time for an entire orchestration run (10 minutes) */
 const MAX_ORCHESTRATION_TIME_MS = 10 * 60 * 1000;
@@ -33,6 +37,7 @@ export class OrchestrationService {
 		private readonly evaluationService: EvaluationService,
 		private readonly debugOutputService: DebugOutputService,
 		private readonly jobQueueService: JobQueueService,
+		private readonly generationEventsService: GenerationEventsService,
 	) {
 		this.s3 = new AWS.S3({
 			accessKeyId: process.env.AWS_ACCESS_KEY_ID,
@@ -248,6 +253,11 @@ export class OrchestrationService {
 					requestId,
 					GenerationRequestStatus.OPTIMIZING,
 				);
+				this.generationEventsService.emit(
+					requestId,
+					GenerationEventType.STATUS_CHANGE,
+					{ status: GenerationRequestStatus.OPTIMIZING, iteration },
+				);
 
 				// Get RAG context for optimization
 				const ragStartTime = Date.now();
@@ -287,15 +297,24 @@ export class OrchestrationService {
 				);
 
 				const optimizeStartTime = Date.now();
-				const optimizedPrompt =
-					await this.promptOptimizerService.optimizePrompt({
-						originalBrief: request.brief,
-						currentPrompt,
-						judgeFeedback,
-						previousPrompts,
-						negativePrompts: request.negativePrompts,
-						referenceContext: ragContext,
-					});
+				let optimizedPrompt: string;
+
+				if (request.initialPrompt && iteration === 1) {
+					optimizedPrompt = request.initialPrompt;
+					this.logger.log(
+						`[PROMPT_OVERRIDE] RequestID: ${requestId} | Iteration: ${iteration} - Using initial prompt`,
+					);
+				} else {
+					optimizedPrompt =
+						await this.promptOptimizerService.optimizePrompt({
+							originalBrief: request.brief,
+							currentPrompt,
+							judgeFeedback,
+							previousPrompts,
+							negativePrompts: request.negativePrompts,
+							referenceContext: ragContext,
+						});
+				}
 
 				this.logger.log(
 					`[OPTIMIZATION_COMPLETE] RequestID: ${requestId} | Iteration: ${iteration} | ` +
@@ -317,6 +336,11 @@ export class OrchestrationService {
 				await this.requestService.updateStatus(
 					requestId,
 					GenerationRequestStatus.GENERATING,
+				);
+				this.generationEventsService.emit(
+					requestId,
+					GenerationEventType.STATUS_CHANGE,
+					{ status: GenerationRequestStatus.GENERATING, iteration },
 				);
 
 				// Safely access imageParams with defaults
@@ -442,6 +466,11 @@ export class OrchestrationService {
 				await this.requestService.updateStatus(
 					requestId,
 					GenerationRequestStatus.EVALUATING,
+				);
+				this.generationEventsService.emit(
+					requestId,
+					GenerationEventType.STATUS_CHANGE,
+					{ status: GenerationRequestStatus.EVALUATING, iteration },
 				);
 
 				const evalStartTime = Date.now();
@@ -570,6 +599,16 @@ export class OrchestrationService {
 				// Track iterations locally to avoid stale data
 				latestIterations.push(iterationSnapshot);
 
+				// Emit SSE event for iteration completion
+				this.generationEventsService.emit(
+					requestId,
+					GenerationEventType.ITERATION_COMPLETE,
+					{
+						iteration: iterationSnapshot,
+						imageIds: imageRecords.map((img) => img.id),
+					},
+				);
+
 				// Extract and accumulate negative prompts from TOP_ISSUE feedback
 				const accumulatedNegatives =
 					this.extractNegativePromptsFromEvaluations(
@@ -645,6 +684,17 @@ export class OrchestrationService {
 						topImage.imageId,
 						CompletionReason.SUCCESS,
 					);
+					this.generationEventsService.emit(
+						requestId,
+						GenerationEventType.COMPLETED,
+						{
+							status: GenerationRequestStatus.COMPLETED,
+							completionReason: CompletionReason.SUCCESS,
+							finalScore: topImage.aggregateScore,
+							finalImageId: topImage.imageId,
+							totalIterations: iteration,
+						},
+					);
 					this.debugOutputService.saveFinalResult(
 						requestId,
 						'completed',
@@ -689,6 +739,18 @@ export class OrchestrationService {
 						bestImageId!,
 						CompletionReason.DIMINISHING_RETURNS,
 					);
+					this.generationEventsService.emit(
+						requestId,
+						GenerationEventType.COMPLETED,
+						{
+							status: GenerationRequestStatus.COMPLETED,
+							completionReason:
+								CompletionReason.DIMINISHING_RETURNS,
+							finalScore: bestScore,
+							finalImageId: bestImageId,
+							totalIterations: iteration,
+						},
+					);
 					this.debugOutputService.saveFinalResult(
 						requestId,
 						'completed',
@@ -728,6 +790,17 @@ export class OrchestrationService {
 				requestId,
 				bestImageId!,
 				CompletionReason.MAX_RETRIES_REACHED,
+			);
+			this.generationEventsService.emit(
+				requestId,
+				GenerationEventType.COMPLETED,
+				{
+					status: GenerationRequestStatus.COMPLETED,
+					completionReason: CompletionReason.MAX_RETRIES_REACHED,
+					finalScore: bestScore,
+					finalImageId: bestImageId,
+					totalIterations: request.maxIterations,
+				},
 			);
 			this.debugOutputService.saveFinalResult(
 				requestId,
@@ -770,6 +843,15 @@ export class OrchestrationService {
 				request.negativePrompts,
 			);
 			await this.requestService.fail(requestId, message);
+			this.generationEventsService.emit(
+				requestId,
+				GenerationEventType.FAILED,
+				{
+					status: GenerationRequestStatus.FAILED,
+					error: message,
+					bestScore,
+				},
+			);
 			throw error;
 		}
 	}
