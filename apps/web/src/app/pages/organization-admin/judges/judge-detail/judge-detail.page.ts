@@ -16,7 +16,7 @@ import { MessageService } from 'primeng/api';
 import { ConfirmDialogModule } from 'primeng/confirmdialog';
 
 import { AgentService } from '../../../../shared/services/agent.service';
-import { Agent } from '../../../../shared/models/agent.model';
+import { Agent, AgentDocument } from '../../../../shared/models/agent.model';
 import { environment } from '../../../../../environments/environment';
 import { PrimeNgModule } from '../../../../shared/primeng.module';
 
@@ -37,6 +37,9 @@ export class JudgeDetailPage implements OnInit {
 	saving = signal(false);
 	agent = signal<Agent | null>(null);
 	isCreateMode = signal(false);
+	documents = signal<AgentDocument[]>([]);
+	loadingDocuments = signal(false);
+	uploadingDocument = signal(false);
 
 	form = new FormGroup({
 		name: new FormControl('', {
@@ -51,6 +54,8 @@ export class JudgeDetailPage implements OnInit {
 		templateId: new FormControl('', { nonNullable: true }),
 		optimizationWeight: new FormControl(50, { nonNullable: true }),
 		scoringWeight: new FormControl(50, { nonNullable: true }),
+		ragTopK: new FormControl(5, { nonNullable: true }),
+		ragSimilarityThreshold: new FormControl(0.7, { nonNullable: true }),
 	});
 
 	private organizationId = environment.organizationId;
@@ -88,8 +93,12 @@ export class JudgeDetailPage implements OnInit {
 					templateId: agentData.templateId || '',
 					optimizationWeight: agentData.optimizationWeight ?? 50,
 					scoringWeight: agentData.scoringWeight ?? 50,
+					ragTopK: agentData.ragConfig?.topK ?? 5,
+					ragSimilarityThreshold:
+						agentData.ragConfig?.similarityThreshold ?? 0.7,
 				});
 				this.loading.set(false);
+				this.loadDocuments(agentData.id);
 			},
 			error: (error) => {
 				console.error('Error loading agent:', error);
@@ -120,6 +129,10 @@ export class JudgeDetailPage implements OnInit {
 			templateId: formValue.templateId || undefined,
 			optimizationWeight: formValue.optimizationWeight,
 			scoringWeight: formValue.scoringWeight,
+			ragConfig: {
+				topK: formValue.ragTopK,
+				similarityThreshold: formValue.ragSimilarityThreshold,
+			},
 		};
 
 		if (this.isCreateMode()) {
@@ -179,5 +192,89 @@ export class JudgeDetailPage implements OnInit {
 
 	goBack(): void {
 		this.router.navigate(['/organization/admin/judges']);
+	}
+
+	loadDocuments(agentId: string): void {
+		this.loadingDocuments.set(true);
+
+		this.agentService.getDocuments(this.organizationId, agentId).subscribe({
+			next: (response) => {
+				this.documents.set(response.data);
+				this.loadingDocuments.set(false);
+			},
+			error: (error) => {
+				console.error('Error loading documents:', error);
+				this.loadingDocuments.set(false);
+			},
+		});
+	}
+
+	onUploadDocument(event: any): void {
+		const file = event.files[0];
+		if (!file || !this.agentId) return;
+
+		this.uploadingDocument.set(true);
+
+		this.agentService
+			.uploadDocument(this.organizationId, this.agentId, file)
+			.subscribe({
+				next: () => {
+					this.messageService.add({
+						severity: 'success',
+						summary: 'Success',
+						detail: 'Document uploaded successfully',
+						life: 3000,
+					});
+					this.uploadingDocument.set(false);
+					this.loadDocuments(this.agentId!);
+				},
+				error: (error) => {
+					console.error('Error uploading document:', error);
+					this.messageService.add({
+						severity: 'error',
+						summary: 'Error',
+						detail: 'Failed to upload document',
+						life: 3000,
+					});
+					this.uploadingDocument.set(false);
+				},
+			});
+	}
+
+	deleteDocument(doc: AgentDocument): void {
+		if (!this.agentId) return;
+
+		this.agentService
+			.deleteDocument(this.organizationId, this.agentId, doc.id)
+			.subscribe({
+				next: () => {
+					this.messageService.add({
+						severity: 'success',
+						summary: 'Success',
+						detail: 'Document deleted successfully',
+						life: 3000,
+					});
+					this.loadDocuments(this.agentId!);
+				},
+				error: (error) => {
+					console.error('Error deleting document:', error);
+					this.messageService.add({
+						severity: 'error',
+						summary: 'Error',
+						detail: 'Failed to delete document',
+						life: 3000,
+					});
+				},
+			});
+	}
+
+	formatDate(dateString: string): string {
+		if (!dateString) return '';
+		const date = new Date(dateString);
+		return date.toLocaleDateString('en-US', {
+			year: 'numeric',
+			month: 'short',
+			day: 'numeric',
+		});
 	}
 }
