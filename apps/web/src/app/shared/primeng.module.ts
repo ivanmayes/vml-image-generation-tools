@@ -22,6 +22,9 @@ import { SliderModule } from 'primeng/slider';
 import { InputOtpModule } from 'primeng/inputotp';
 import { IconFieldModule } from 'primeng/iconfield';
 import { InputIconModule } from 'primeng/inputicon';
+import { TextareaModule } from 'primeng/textarea';
+import { InputNumberModule } from 'primeng/inputnumber';
+import { FileUploadModule } from 'primeng/fileupload';
 
 // Message Components
 import { MessageModule } from 'primeng/message';
@@ -78,6 +81,9 @@ const primeNgModules = [
 	InputOtpModule,
 	IconFieldModule,
 	InputIconModule,
+	TextareaModule,
+	InputNumberModule,
+	FileUploadModule,
 
 	// Dialog/Overlay Components
 	DialogModule,
