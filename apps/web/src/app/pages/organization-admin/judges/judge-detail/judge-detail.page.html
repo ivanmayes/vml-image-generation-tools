@@ -1,0 +1,173 @@
+<div class="judge-detail-page">
+	<div class="page-header mb-4">
+		<button
+			pButton
+			icon="pi pi-arrow-left"
+			label="Back to Judges"
+			class="p-button-text"
+			(click)="goBack()"
+		></button>
+
+		<h1>
+			@if (isCreateMode()) { Create Judge } @else { Edit Judge: {{
+			agent()?.name }} }
+		</h1>
+	</div>
+
+	@if (loading()) {
+	<div class="loading-container">
+		<p-progressSpinner></p-progressSpinner>
+	</div>
+	} @else {
+	<p-tabs value="0">
+		<p-tablist>
+			<p-tab value="0">Prompt Config</p-tab>
+			<p-tab value="1">Documents</p-tab>
+			<p-tab value="2">Test / Evaluate</p-tab>
+		</p-tablist>
+
+		<p-tabpanels>
+			<p-tabpanel value="0">
+				<form [formGroup]="form" class="form-container">
+					<div class="field">
+						<label for="name">Name *</label>
+						<input
+							id="name"
+							pInputText
+							formControlName="name"
+							placeholder="Enter judge name"
+							class="w-full"
+						/>
+						@if (form.get('name')?.invalid &&
+						form.get('name')?.touched) {
+						<small class="p-error">Name is required.</small>
+						}
+					</div>
+
+					<div class="field">
+						<label for="systemPrompt">System Prompt *</label>
+						<textarea
+							id="systemPrompt"
+							pTextarea
+							formControlName="systemPrompt"
+							[autoResize]="true"
+							[rows]="10"
+							placeholder="Enter the system prompt for this judge..."
+							class="w-full system-prompt-textarea"
+						></textarea>
+						@if (form.get('systemPrompt')?.invalid &&
+						form.get('systemPrompt')?.touched) {
+						<small class="p-error"
+							>System prompt is required.</small
+						>
+						}
+					</div>
+
+					<div class="field">
+						<label for="evaluationCategories"
+							>Evaluation Categories</label
+						>
+						<textarea
+							id="evaluationCategories"
+							pTextarea
+							formControlName="evaluationCategories"
+							[autoResize]="true"
+							[rows]="3"
+							placeholder="e.g. composition, lighting, color accuracy"
+							class="w-full"
+						></textarea>
+						<small class="helper-text"
+							>Comma-separated categories for evaluation
+							scoring</small
+						>
+					</div>
+
+					<div class="field">
+						<label for="templateId">Template ID</label>
+						<input
+							id="templateId"
+							pInputText
+							formControlName="templateId"
+							placeholder="Optional template identifier"
+							class="w-full"
+						/>
+					</div>
+
+					<div class="field-row">
+						<div class="field">
+							<label for="optimizationWeight"
+								>Optimization Weight</label
+							>
+							<p-inputNumber
+								formControlName="optimizationWeight"
+								[min]="0"
+								[max]="100"
+								[showButtons]="true"
+								inputId="optimizationWeight"
+							></p-inputNumber>
+						</div>
+
+						<div class="field">
+							<label for="scoringWeight">Scoring Weight</label>
+							<p-inputNumber
+								formControlName="scoringWeight"
+								[min]="0"
+								[max]="100"
+								[showButtons]="true"
+								inputId="scoringWeight"
+							></p-inputNumber>
+						</div>
+					</div>
+
+					<div class="form-actions">
+						<button
+							pButton
+							label="Cancel"
+							class="p-button-outlined"
+							(click)="cancel()"
+							type="button"
+						></button>
+						<button
+							pButton
+							[label]="saving() ? 'Saving...' : 'Save'"
+							icon="pi pi-check"
+							(click)="save()"
+							[disabled]="saving() || form.invalid"
+							[loading]="saving()"
+							type="button"
+						></button>
+					</div>
+				</form>
+			</p-tabpanel>
+
+			<p-tabpanel value="1">
+				<div class="placeholder-content">
+					<i
+						class="pi pi-file"
+						style="
+							font-size: 2rem;
+							color: var(--p-text-color-secondary);
+						"
+					></i>
+					<p>Document management coming soon.</p>
+				</div>
+			</p-tabpanel>
+
+			<p-tabpanel value="2">
+				<div class="placeholder-content">
+					<i
+						class="pi pi-play"
+						style="
+							font-size: 2rem;
+							color: var(--p-text-color-secondary);
+						"
+					></i>
+					<p>Test and evaluation coming soon.</p>
+				</div>
+			</p-tabpanel>
+		</p-tabpanels>
+	</p-tabs>
+	}
+</div>
+
+<p-toast></p-toast>

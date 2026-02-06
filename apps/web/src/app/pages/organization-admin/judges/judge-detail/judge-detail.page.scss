@@ -1,0 +1,83 @@
+.judge-detail-page {
+	padding: 0;
+
+	.page-header {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+
+		h1 {
+			margin: 0;
+		}
+	}
+
+	.loading-container {
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		padding: 4rem 0;
+	}
+
+	.form-container {
+		max-width: 800px;
+		padding: 1.5rem 0;
+
+		.field {
+			margin-bottom: 1.5rem;
+
+			label {
+				display: block;
+				margin-bottom: 0.5rem;
+				font-weight: 600;
+				color: var(--p-text-color);
+			}
+
+			.helper-text {
+				display: block;
+				margin-top: 0.25rem;
+				color: var(--p-text-color-secondary);
+				font-size: 0.875rem;
+			}
+		}
+
+		.field-row {
+			display: flex;
+			gap: 2rem;
+
+			.field {
+				flex: 1;
+			}
+		}
+
+		.form-actions {
+			display: flex;
+			justify-content: flex-end;
+			gap: 0.75rem;
+			margin-top: 2rem;
+			padding-top: 1.5rem;
+			border-top: 1px solid var(--p-surface-border);
+		}
+	}
+
+	.placeholder-content {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		padding: 4rem 2rem;
+		text-align: center;
+
+		p {
+			margin: 1rem 0 0;
+			color: var(--p-text-color-secondary);
+			font-size: 1.1rem;
+		}
+	}
+}
+
+:host ::ng-deep {
+	.system-prompt-textarea {
+		max-height: 400px;
+		overflow-y: auto !important;
+	}
+}

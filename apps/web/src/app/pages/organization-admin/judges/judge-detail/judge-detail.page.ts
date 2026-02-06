@@ -1,0 +1,183 @@
+import {
+	ChangeDetectionStrategy,
+	Component,
+	OnInit,
+	signal,
+} from '@angular/core';
+import { CommonModule } from '@angular/common';
+import {
+	ReactiveFormsModule,
+	FormGroup,
+	FormControl,
+	Validators,
+} from '@angular/forms';
+import { ActivatedRoute, Router } from '@angular/router';
+import { MessageService } from 'primeng/api';
+import { ConfirmDialogModule } from 'primeng/confirmdialog';
+
+import { AgentService } from '../../../../shared/services/agent.service';
+import { Agent } from '../../../../shared/models/agent.model';
+import { environment } from '../../../../../environments/environment';
+import { PrimeNgModule } from '../../../../shared/primeng.module';
+
+@Component({
+	selector: 'app-judge-detail',
+	templateUrl: './judge-detail.page.html',
+	styleUrls: ['./judge-detail.page.scss'],
+	changeDetection: ChangeDetectionStrategy.OnPush,
+	imports: [
+		CommonModule,
+		PrimeNgModule,
+		ReactiveFormsModule,
+		ConfirmDialogModule,
+	],
+})
+export class JudgeDetailPage implements OnInit {
+	loading = signal(false);
+	saving = signal(false);
+	agent = signal<Agent | null>(null);
+	isCreateMode = signal(false);
+
+	form = new FormGroup({
+		name: new FormControl('', {
+			nonNullable: true,
+			validators: [Validators.required],
+		}),
+		systemPrompt: new FormControl('', {
+			nonNullable: true,
+			validators: [Validators.required],
+		}),
+		evaluationCategories: new FormControl('', { nonNullable: true }),
+		templateId: new FormControl('', { nonNullable: true }),
+		optimizationWeight: new FormControl(50, { nonNullable: true }),
+		scoringWeight: new FormControl(50, { nonNullable: true }),
+	});
+
+	private organizationId = environment.organizationId;
+	private agentId: string | null = null;
+
+	constructor(
+		private readonly agentService: AgentService,
+		private readonly messageService: MessageService,
+		private readonly router: Router,
+		private readonly route: ActivatedRoute,
+	) {}
+
+	ngOnInit(): void {
+		const idParam = this.route.snapshot.paramMap.get('id');
+
+		if (!idParam || idParam === 'new') {
+			this.isCreateMode.set(true);
+		} else {
+			this.agentId = idParam;
+			this.loadAgent(idParam);
+		}
+	}
+
+	private loadAgent(agentId: string): void {
+		this.loading.set(true);
+
+		this.agentService.getAgent(this.organizationId, agentId).subscribe({
+			next: (response) => {
+				const agentData: Agent = response.data;
+				this.agent.set(agentData);
+				this.form.patchValue({
+					name: agentData.name || '',
+					systemPrompt: agentData.systemPrompt || '',
+					evaluationCategories: agentData.evaluationCategories || '',
+					templateId: agentData.templateId || '',
+					optimizationWeight: agentData.optimizationWeight ?? 50,
+					scoringWeight: agentData.scoringWeight ?? 50,
+				});
+				this.loading.set(false);
+			},
+			error: (error) => {
+				console.error('Error loading agent:', error);
+				this.messageService.add({
+					severity: 'error',
+					summary: 'Error',
+					detail: 'Failed to load judge',
+					life: 3000,
+				});
+				this.loading.set(false);
+			},
+		});
+	}
+
+	save(): void {
+		if (this.form.invalid) {
+			this.form.markAllAsTouched();
+			return;
+		}
+
+		this.saving.set(true);
+		const formValue = this.form.getRawValue();
+
+		const dto = {
+			name: formValue.name,
+			systemPrompt: formValue.systemPrompt,
+			evaluationCategories: formValue.evaluationCategories || undefined,
+			templateId: formValue.templateId || undefined,
+			optimizationWeight: formValue.optimizationWeight,
+			scoringWeight: formValue.scoringWeight,
+		};
+
+		if (this.isCreateMode()) {
+			this.agentService.createAgent(this.organizationId, dto).subscribe({
+				next: () => {
+					this.messageService.add({
+						severity: 'success',
+						summary: 'Success',
+						detail: 'Judge created successfully',
+						life: 3000,
+					});
+					this.saving.set(false);
+					this.router.navigate(['/organization/admin/judges']);
+				},
+				error: (error) => {
+					console.error('Error creating agent:', error);
+					this.messageService.add({
+						severity: 'error',
+						summary: 'Error',
+						detail: 'Failed to create judge',
+						life: 3000,
+					});
+					this.saving.set(false);
+				},
+			});
+		} else {
+			this.agentService
+				.updateAgent(this.organizationId, this.agentId!, dto)
+				.subscribe({
+					next: () => {
+						this.messageService.add({
+							severity: 'success',
+							summary: 'Success',
+							detail: 'Judge updated successfully',
+							life: 3000,
+						});
+						this.saving.set(false);
+						this.router.navigate(['/organization/admin/judges']);
+					},
+					error: (error) => {
+						console.error('Error updating agent:', error);
+						this.messageService.add({
+							severity: 'error',
+							summary: 'Error',
+							detail: 'Failed to update judge',
+							life: 3000,
+						});
+						this.saving.set(false);
+					},
+				});
+		}
+	}
+
+	cancel(): void {
+		this.router.navigate(['/organization/admin/judges']);
+	}
+
+	goBack(): void {
+		this.router.navigate(['/organization/admin/judges']);
+	}
+}

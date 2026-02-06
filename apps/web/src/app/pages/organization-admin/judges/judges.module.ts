@@ -8,6 +8,7 @@ import { SharedModule } from '../../../shared/shared.module';
 import { PrimeNgModule } from '../../../shared/primeng.module';
 
 import { JudgesPage } from './judges.page';
+import { JudgeDetailPage } from './judge-detail/judge-detail.page';
 
 @NgModule({
 	imports: [
@@ -21,8 +22,17 @@ import { JudgesPage } from './judges.page';
 				path: '',
 				component: JudgesPage,
 			},
+			{
+				path: 'new',
+				component: JudgeDetailPage,
+			},
+			{
+				path: ':id',
+				component: JudgeDetailPage,
+			},
 		]),
 		JudgesPage,
+		JudgeDetailPage,
 	],
 })
 export class JudgesPageModule {}
