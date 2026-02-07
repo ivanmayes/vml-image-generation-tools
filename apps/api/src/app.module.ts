@@ -27,6 +27,7 @@ import { SpaceUserController } from './space-user/space-user.controller';
 import { AgentController } from './image-generation/agent/agent.controller';
 import { PromptOptimizerController } from './image-generation/prompt-optimizer/prompt-optimizer.controller';
 import { GenerationRequestController } from './image-generation/generation-request/generation-request.controller';
+import { ProjectController } from './image-generation/project/project.controller';
 // CLI_CONTROLLERS_IMPORT
 
 Global();
@@ -56,6 +57,7 @@ Global();
 		AgentController,
 		PromptOptimizerController,
 		GenerationRequestController,
+		ProjectController,
 		// CLI_CONTROLLERS_REF
 	],
 	providers: [

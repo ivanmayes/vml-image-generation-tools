@@ -10,6 +10,7 @@ import {
 	HttpException,
 	HttpStatus,
 	Query,
+	Logger,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 
@@ -27,6 +28,8 @@ const basePath = 'organization/:orgId/image-generation/projects';
 
 @Controller(basePath)
 export class ProjectController {
+	private readonly logger = new Logger(ProjectController.name);
+
 	constructor(private readonly projectService: ProjectService) {}
 
 	@Get()
@@ -94,15 +97,29 @@ export class ProjectController {
 		@Param('orgId') orgId: string,
 		@Body() createDto: ProjectCreateDto,
 	) {
-		const project = await this.projectService
-			.create({
+		let project: Project | null = null;
+		try {
+			project = await this.projectService.create({
 				organizationId: orgId,
 				name: createDto.name,
 				description: createDto.description,
 				spaceId: createDto.spaceId,
 				settings: createDto.settings ?? {},
-			})
-			.catch(() => null);
+			});
+		} catch (error) {
+			const message =
+				error instanceof Error ? error.message : 'Unknown error';
+			this.logger.error(
+				`[PROJECT_CREATE_FAILED] OrgId: ${orgId} | Error: ${message}`,
+			);
+			throw new HttpException(
+				new ResponseEnvelope(
+					ResponseStatus.Failure,
+					`Error creating project: ${message}`,
+				),
+				HttpStatus.INTERNAL_SERVER_ERROR,
+			);
+		}
 
 		if (!project) {
 			throw new HttpException(
