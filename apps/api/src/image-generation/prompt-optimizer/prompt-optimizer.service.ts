@@ -8,7 +8,8 @@ import {
 	AIMessage,
 	AIProvider,
 } from '../../_core/third-party/ai';
-import { PromptOptimizer, Agent, DEFAULT_OPTIMIZER_PROMPT } from '../entities';
+import { Agent } from '../../agent/agent.entity';
+import { PromptOptimizer, DEFAULT_OPTIMIZER_PROMPT } from '../entities';
 import { DocumentProcessorService } from '../document-processor/document-processor.service';
 
 interface TopIssue {
@@ -36,6 +37,12 @@ interface OptimizePromptInput {
 	negativePrompts?: string;
 	referenceContext?: string;
 	hasReferenceImages?: boolean;
+}
+
+interface BuildEditInstructionInput {
+	originalBrief: string;
+	topIssues: TopIssue[];
+	whatWorked: string[];
 }
 
 @Injectable()
@@ -163,6 +170,81 @@ export class PromptOptimizerService implements OnModuleInit {
 		);
 
 		return optimizedPrompt;
+	}
+
+	/**
+	 * Build a targeted edit instruction from judge feedback.
+	 * Unlike optimizePrompt() which produces 500+ word generation prompts,
+	 * this produces 1-3 sentence edit instructions for image editing.
+	 */
+	public async buildEditInstruction(
+		input: BuildEditInstructionInput,
+	): Promise<string> {
+		const startTime = Date.now();
+		this.logger.log(
+			`[EDIT_INSTRUCTION_START] TopIssues: ${input.topIssues.length}`,
+		);
+
+		// Take the highest-severity issue
+		const primaryIssue = input.topIssues[0];
+		if (!primaryIssue) {
+			// No issues — generate a generic refinement instruction
+			return `Refine the image quality. Ensure all elements match this description: ${input.originalBrief.substring(0, 200)}. Keep everything else exactly the same.`;
+		}
+
+		const systemPrompt = `You are an image editing instruction writer. Your job is to convert judge feedback into precise, actionable edit instructions for an AI image editor.
+
+RULES:
+- Output ONLY the edit instruction, nothing else
+- Keep it to 1-3 sentences maximum
+- Always specify what to KEEP unchanged: "Keep everything else exactly the same"
+- Be specific about the target element: "Change only the [X]" not "change the [X]"
+- Use descriptive visual language, not abstract concepts
+- Reference photographic terms when relevant (lighting, composition, depth of field)
+- ONE change per instruction — the most impactful fix only
+
+EXAMPLES OF GOOD INSTRUCTIONS:
+- "Make the Coca-Cola label text sharper and fully legible — the script should flow left-to-right without warping or distortion. Keep the bottle shape, lighting, and background exactly the same."
+- "Change the background from white to a warm amber gradient that fades to dark at the edges. Keep the product, lighting, and all other elements exactly the same."
+- "Correct the bottle proportions — the glass bottle should have the classic Coca-Cola hobbleskirt silhouette with a height-to-width ratio of approximately 3:1. Keep the label, background, and lighting unchanged."`;
+
+		const userMessage = `## Issue to Fix
+Problem: ${primaryIssue.problem}
+Severity: ${primaryIssue.severity}
+Suggested Fix: ${primaryIssue.fix}
+
+## Elements That Work Well (PRESERVE THESE)
+${input.whatWorked.length > 0 ? input.whatWorked.map((w) => `- ${w}`).join('\n') : '- No specific elements flagged as working well'}
+
+## Original Brief (for context)
+${input.originalBrief.substring(0, 300)}
+
+Write the edit instruction now.`;
+
+		const messages: AIMessage[] = [
+			{ role: AIMessageRole.System, content: systemPrompt },
+			{ role: AIMessageRole.User, content: userMessage },
+		];
+
+		const optimizer = await this.getOrCreateOptimizer();
+		const config = optimizer.config ?? {};
+		const model = (config.model ?? 'gemini-2.0-flash') as any;
+
+		const response = await this.aiService.generateText({
+			provider: AIProvider.Google,
+			messages,
+			temperature: 0.3, // Lower temperature for more focused instructions
+			model,
+		});
+
+		const instruction = (response.content ?? '').trim();
+		const totalTime = Date.now() - startTime;
+
+		this.logger.log(
+			`[EDIT_INSTRUCTION_COMPLETE] Length: ${instruction.length} chars | Time: ${totalTime}ms`,
+		);
+
+		return instruction;
 	}
 
 	/**

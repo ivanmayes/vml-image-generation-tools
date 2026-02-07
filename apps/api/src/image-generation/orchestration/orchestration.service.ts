@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { v4 as uuidv4 } from 'uuid';
 import * as AWS from 'aws-sdk';
 
-import { AgentService } from '../agent/agent.service';
+import { AgentService } from '../../agent/agent.service';
 import { GenerationRequestService } from '../generation-request/generation-request.service';
 import { PromptOptimizerService } from '../prompt-optimizer/prompt-optimizer.service';
 import {
@@ -10,10 +10,14 @@ import {
 	CompletionReason,
 	IterationSnapshot,
 	GeneratedImage,
+	GenerationMode,
 } from '../entities';
 import { JobQueueService } from '../jobs/job-queue.service';
 
-import { GeminiImageService } from './gemini-image.service';
+import {
+	GeminiImageService,
+	GeneratedImageResult,
+} from './gemini-image.service';
 import {
 	EvaluationService,
 	EvaluationResult,
@@ -70,10 +74,15 @@ export class OrchestrationService {
 			throw new Error(`Request ${requestId} not found`);
 		}
 
+		// Determine starting iteration for continuations
+		// On fresh runs currentIteration is 0; on continuations it reflects completed iterations
+		const startIteration = (request.currentIteration ?? 0) + 1;
+
 		this.logger.log(
 			`[REQUEST_LOADED] RequestID: ${requestId} | ` +
 				`Brief: "${request.brief.substring(0, 50)}..." | ` +
 				`MaxIterations: ${request.maxIterations} | ` +
+				`StartIteration: ${startIteration} | ` +
 				`Threshold: ${request.threshold} | ` +
 				`JudgeCount: ${request.judgeIds.length}`,
 		);
@@ -160,8 +169,14 @@ export class OrchestrationService {
 		};
 
 		let totalRetries = 0;
-		let completedIterations = 0;
+		let completedIterations = request.currentIteration ?? 0;
 		let bestScore = 0;
+
+		// Reconstruct consecutiveEditCount from last iteration (persists across continuations)
+		const lastPersistedIteration =
+			request.iterations?.[request.iterations.length - 1];
+		let consecutiveEditCount =
+			lastPersistedIteration?.consecutiveEditCount ?? 0;
 
 		try {
 			let currentPrompt: string | undefined;
@@ -169,9 +184,34 @@ export class OrchestrationService {
 			let bestImageId: string | undefined;
 			const latestIterations: typeof request.iterations = [];
 
+			// Seed state from prior iterations (supports continuations)
+			if (request.iterations?.length) {
+				for (const prevIter of request.iterations) {
+					latestIterations.push(prevIter);
+					previousPrompts.push(prevIter.optimizedPrompt);
+					if (
+						prevIter.selectedImageId &&
+						prevIter.aggregateScore >= bestScore
+					) {
+						bestScore = prevIter.aggregateScore;
+						bestImageId = prevIter.selectedImageId;
+					}
+				}
+				// Resume from last prompt
+				currentPrompt =
+					request.iterations[request.iterations.length - 1]
+						.optimizedPrompt;
+				this.logger.log(
+					`[CONTINUATION_SEED] RequestID: ${requestId} | ` +
+						`SeededIterations: ${request.iterations.length} | ` +
+						`BestScore: ${bestScore.toFixed(2)} | ` +
+						`StartIteration: ${startIteration}`,
+				);
+			}
+
 			// Run iterations
 			for (
-				let iteration = 1;
+				let iteration = startIteration;
 				iteration <= request.maxIterations;
 				iteration++
 			) {
@@ -249,143 +289,300 @@ export class OrchestrationService {
 						`BestScoreSoFar: ${bestScore}`,
 				);
 
-				// 1. Optimize prompt
-				this.logger.log(
-					`[PHASE_OPTIMIZING] RequestID: ${requestId} | Iteration: ${iteration} - Starting prompt optimization`,
-				);
-				await this.requestService.updateStatus(
-					requestId,
-					GenerationRequestStatus.OPTIMIZING,
-				);
-				this.generationEventsService.emit(
-					requestId,
-					GenerationEventType.STATUS_CHANGE,
-					{ status: GenerationRequestStatus.OPTIMIZING, iteration },
-				);
-
-				// Get RAG context for optimization
-				const ragStartTime = Date.now();
-				const ragContext =
-					await this.promptOptimizerService.getAgentRagContext(
-						agentsWithDocs.filter(Boolean) as any[],
-						request.brief,
-					);
-				this.logger.debug(
-					`[RAG_CONTEXT] RequestID: ${requestId} | Iteration: ${iteration} | ` +
-						`ContextLength: ${ragContext.length} chars | ` +
-						`Time: ${Date.now() - ragStartTime}ms`,
-				);
-
-				// Get judge feedback from previous iteration (use local tracking)
-				const judgeFeedback =
+				// Determine strategy for this iteration
+				const lastIterationEvals =
 					latestIterations.length > 0
-						? latestIterations[
-								latestIterations.length - 1
-							].evaluations.map((e) => ({
-								agentId: e.agentId,
-								agentName: e.agentName,
-								feedback: e.feedback,
-								score: e.overallScore,
-								weight: e.weight,
-								topIssue: e.topIssue,
-								whatWorked: e.whatWorked,
-								promptInstructions: e.promptInstructions,
-							}))
+						? latestIterations[latestIterations.length - 1]
+								.evaluations
 						: [];
+				const topIssueSeverity = lastIterationEvals
+					.filter((e) => e.topIssue)
+					.sort((a, b) => {
+						const order: Record<string, number> = {
+							critical: 0,
+							major: 1,
+							moderate: 2,
+							minor: 3,
+						};
+						return (
+							(order[a.topIssue!.severity] ?? 2) -
+							(order[b.topIssue!.severity] ?? 2)
+						);
+					})[0]?.topIssue?.severity;
 
-				this.logger.debug(
-					`[OPTIMIZATION_INPUT] RequestID: ${requestId} | Iteration: ${iteration} | ` +
-						`FeedbackCount: ${judgeFeedback.length} | ` +
-						`PreviousPrompts: ${previousPrompts.length} | ` +
-						`HasNegativePrompts: ${!!request.negativePrompts}`,
+				const strategy = this.selectIterationStrategy(
+					request.generationMode ?? GenerationMode.REGENERATION,
+					iteration,
+					bestScore,
+					latestIterations.map((i) => i.aggregateScore),
+					topIssueSeverity,
+					consecutiveEditCount,
 				);
 
-				const optimizeStartTime = Date.now();
+				this.logger.log(
+					`[STRATEGY_SELECTED] RequestID: ${requestId} | Iteration: ${iteration} | ` +
+						`Mode: ${request.generationMode ?? 'regeneration'} | Strategy: ${strategy} | ` +
+						`ConsecutiveEdits: ${consecutiveEditCount}`,
+				);
+
 				let optimizedPrompt: string;
-
-				if (request.initialPrompt && iteration === 1) {
-					optimizedPrompt = request.initialPrompt;
-					this.logger.log(
-						`[PROMPT_OVERRIDE] RequestID: ${requestId} | Iteration: ${iteration} - Using initial prompt`,
-					);
-				} else {
-					optimizedPrompt =
-						await this.promptOptimizerService.optimizePrompt({
-							originalBrief: request.brief,
-							currentPrompt,
-							judgeFeedback,
-							previousPrompts,
-							negativePrompts: request.negativePrompts,
-							referenceContext: ragContext,
-							hasReferenceImages:
-								!!request.referenceImageUrls?.length,
-						});
-				}
-
-				this.logger.log(
-					`[OPTIMIZATION_COMPLETE] RequestID: ${requestId} | Iteration: ${iteration} | ` +
-						`PromptLength: ${optimizedPrompt.length} chars | ` +
-						`Time: ${Date.now() - optimizeStartTime}ms`,
-				);
-				this.logger.debug(
-					`[OPTIMIZED_PROMPT] RequestID: ${requestId} | Iteration: ${iteration} | ` +
-						`Prompt: "${optimizedPrompt.substring(0, 100)}..."`,
-				);
-
-				currentPrompt = optimizedPrompt;
-				previousPrompts.push(optimizedPrompt);
-
-				// 2. Generate images
-				this.logger.log(
-					`[PHASE_GENERATING] RequestID: ${requestId} | Iteration: ${iteration} - Starting image generation`,
-				);
-				await this.requestService.updateStatus(
-					requestId,
-					GenerationRequestStatus.GENERATING,
-				);
-				this.generationEventsService.emit(
-					requestId,
-					GenerationEventType.STATUS_CHANGE,
-					{ status: GenerationRequestStatus.GENERATING, iteration },
-				);
-
-				// Safely access imageParams with defaults
+				let generatedImages: GeneratedImageResult[];
+				let editSourceImageId: string | undefined;
 				const imageParams = request.imageParams ?? {
 					imagesPerGeneration: 3,
 				};
 				const imageCount = imageParams.imagesPerGeneration || 3;
-				this.logger.debug(
-					`[GENERATION_CONFIG] RequestID: ${requestId} | Iteration: ${iteration} | ` +
-						`ImageCount: ${imageCount} | ` +
-						`AspectRatio: ${imageParams.aspectRatio ?? 'default'} | ` +
-						`Quality: ${imageParams.quality ?? 'default'}`,
-				);
 
-				const genStartTime = Date.now();
-				const generatedImages = await this.withRetry(
-					() =>
-						this.geminiImageService.generateImages(
-							optimizedPrompt,
-							imageCount,
-							{
-								aspectRatio: imageParams.aspectRatio,
-								quality: imageParams.quality,
-								referenceImageUrls: request.referenceImageUrls,
+				if (strategy === 'edit' && bestImageId) {
+					// ═══════════════════════════════════════════════
+					// EDIT PATH: Download best image, build edit instruction, edit it
+					// ═══════════════════════════════════════════════
+
+					await this.requestService.updateStatus(
+						requestId,
+						GenerationRequestStatus.OPTIMIZING,
+					);
+					this.generationEventsService.emit(
+						requestId,
+						GenerationEventType.STATUS_CHANGE,
+						{
+							status: GenerationRequestStatus.OPTIMIZING,
+							iteration,
+						},
+					);
+
+					// Use the best image from the LAST iteration specifically
+					const lastIteration =
+						latestIterations[latestIterations.length - 1];
+					editSourceImageId =
+						lastIteration?.selectedImageId ?? bestImageId;
+
+					// Build edit instruction from TOP_ISSUE
+					const topIssues = lastIterationEvals
+						.filter((e) => e.topIssue)
+						.map((e) => e.topIssue!);
+					const whatWorked = lastIterationEvals
+						.flatMap((e) => e.whatWorked ?? [])
+						.filter((w, i, arr) => arr.indexOf(w) === i);
+
+					// Parallelize S3 download + edit instruction building
+					const [sourceImageBase64, editInstruction] =
+						await Promise.all([
+							this.downloadImageAsBase64(editSourceImageId),
+							this.promptOptimizerService.buildEditInstruction({
+								originalBrief: request.brief,
+								topIssues,
+								whatWorked,
+							}),
+						]);
+
+					optimizedPrompt = editInstruction;
+
+					this.logger.log(
+						`[EDIT_INSTRUCTION] RequestID: ${requestId} | Iteration: ${iteration} | ` +
+							`Instruction: "${editInstruction.substring(0, 100)}..." | ` +
+							`SourceImage: ${editSourceImageId}`,
+					);
+
+					// Generate edited images
+					await this.requestService.updateStatus(
+						requestId,
+						GenerationRequestStatus.GENERATING,
+					);
+					this.generationEventsService.emit(
+						requestId,
+						GenerationEventType.STATUS_CHANGE,
+						{
+							status: GenerationRequestStatus.GENERATING,
+							iteration,
+						},
+					);
+
+					const genStartTime = Date.now();
+					try {
+						generatedImages = await this.withRetry(
+							() =>
+								this.geminiImageService.editImages(
+									sourceImageBase64,
+									editInstruction,
+									imageCount,
+									{
+										aspectRatio: imageParams.aspectRatio,
+									},
+								),
+							`ImageEdit:iter${iteration}`,
+							3,
+							1000,
+							() => {
+								totalRetries++;
 							},
-						),
-					`ImageGeneration:iter${iteration}`,
-					3,
-					1000,
-					() => {
-						totalRetries++;
-					},
-				);
+						);
+						consecutiveEditCount++;
+					} catch (editError) {
+						// Edit-to-regeneration fallback
+						const message =
+							editError instanceof Error
+								? editError.message
+								: 'Unknown error';
+						this.logger.warn(
+							`[EDIT_FALLBACK] RequestID: ${requestId} | Iteration: ${iteration} | ` +
+								`Edit failed, falling back to regeneration: ${message}`,
+						);
+						generatedImages = await this.withRetry(
+							() =>
+								this.geminiImageService.generateImages(
+									currentPrompt ?? request.brief,
+									imageCount,
+									{
+										aspectRatio: imageParams.aspectRatio,
+										quality: imageParams.quality,
+										referenceImageUrls:
+											request.referenceImageUrls,
+									},
+								),
+							`ImageGenFallback:iter${iteration}`,
+							3,
+							1000,
+							() => {
+								totalRetries++;
+							},
+						);
+						consecutiveEditCount = 0;
+						editSourceImageId = undefined;
+					}
 
-				this.logger.log(
-					`[GENERATION_COMPLETE] RequestID: ${requestId} | Iteration: ${iteration} | ` +
-						`ImagesGenerated: ${generatedImages.length} | ` +
-						`Time: ${Date.now() - genStartTime}ms`,
-				);
+					this.logger.log(
+						`[GENERATION_COMPLETE] RequestID: ${requestId} | Iteration: ${iteration} | ` +
+							`Strategy: edit | ImagesGenerated: ${generatedImages.length} | ` +
+							`Time: ${Date.now() - genStartTime}ms`,
+					);
+				} else {
+					// ═══════════════════════════════════════════════
+					// REGENERATION PATH: Existing behavior (unchanged)
+					// ═══════════════════════════════════════════════
+					consecutiveEditCount = 0;
+
+					// 1. Optimize prompt
+					this.logger.log(
+						`[PHASE_OPTIMIZING] RequestID: ${requestId} | Iteration: ${iteration} - Starting prompt optimization`,
+					);
+					await this.requestService.updateStatus(
+						requestId,
+						GenerationRequestStatus.OPTIMIZING,
+					);
+					this.generationEventsService.emit(
+						requestId,
+						GenerationEventType.STATUS_CHANGE,
+						{
+							status: GenerationRequestStatus.OPTIMIZING,
+							iteration,
+						},
+					);
+
+					// Get RAG context for optimization
+					const ragStartTime = Date.now();
+					const ragContext =
+						await this.promptOptimizerService.getAgentRagContext(
+							agentsWithDocs.filter(Boolean) as any[],
+							request.brief,
+						);
+					this.logger.debug(
+						`[RAG_CONTEXT] RequestID: ${requestId} | Iteration: ${iteration} | ` +
+							`ContextLength: ${ragContext.length} chars | ` +
+							`Time: ${Date.now() - ragStartTime}ms`,
+					);
+
+					// Get judge feedback from previous iteration
+					const judgeFeedback =
+						latestIterations.length > 0
+							? latestIterations[
+									latestIterations.length - 1
+								].evaluations.map((e) => ({
+									agentId: e.agentId,
+									agentName: e.agentName,
+									feedback: e.feedback,
+									score: e.overallScore,
+									weight: e.weight,
+									topIssue: e.topIssue,
+									whatWorked: e.whatWorked,
+									promptInstructions: e.promptInstructions,
+								}))
+							: [];
+
+					const optimizeStartTime = Date.now();
+
+					if (request.initialPrompt && iteration === startIteration) {
+						optimizedPrompt = request.initialPrompt;
+						this.logger.log(
+							`[PROMPT_OVERRIDE] RequestID: ${requestId} | Iteration: ${iteration} - Using initial prompt`,
+						);
+					} else {
+						optimizedPrompt =
+							await this.promptOptimizerService.optimizePrompt({
+								originalBrief: request.brief,
+								currentPrompt,
+								judgeFeedback,
+								previousPrompts,
+								negativePrompts: request.negativePrompts,
+								referenceContext: ragContext,
+								hasReferenceImages:
+									!!request.referenceImageUrls?.length,
+							});
+					}
+
+					this.logger.log(
+						`[OPTIMIZATION_COMPLETE] RequestID: ${requestId} | Iteration: ${iteration} | ` +
+							`PromptLength: ${optimizedPrompt.length} chars | ` +
+							`Time: ${Date.now() - optimizeStartTime}ms`,
+					);
+
+					currentPrompt = optimizedPrompt;
+					previousPrompts.push(optimizedPrompt);
+
+					// 2. Generate images
+					this.logger.log(
+						`[PHASE_GENERATING] RequestID: ${requestId} | Iteration: ${iteration} - Starting image generation`,
+					);
+					await this.requestService.updateStatus(
+						requestId,
+						GenerationRequestStatus.GENERATING,
+					);
+					this.generationEventsService.emit(
+						requestId,
+						GenerationEventType.STATUS_CHANGE,
+						{
+							status: GenerationRequestStatus.GENERATING,
+							iteration,
+						},
+					);
+
+					const genStartTime = Date.now();
+					generatedImages = await this.withRetry(
+						() =>
+							this.geminiImageService.generateImages(
+								optimizedPrompt,
+								imageCount,
+								{
+									aspectRatio: imageParams.aspectRatio,
+									quality: imageParams.quality,
+									referenceImageUrls:
+										request.referenceImageUrls,
+								},
+							),
+						`ImageGeneration:iter${iteration}`,
+						3,
+						1000,
+						() => {
+							totalRetries++;
+						},
+					);
+
+					this.logger.log(
+						`[GENERATION_COMPLETE] RequestID: ${requestId} | Iteration: ${iteration} | ` +
+							`Strategy: regenerate | ImagesGenerated: ${generatedImages.length} | ` +
+							`Time: ${Date.now() - genStartTime}ms`,
+					);
+				}
 
 				// Upload images to S3 and create database records
 				this.logger.debug(
@@ -579,6 +776,10 @@ export class OrchestrationService {
 						topImage.evaluations,
 					),
 					createdAt: new Date(),
+					mode: strategy === 'edit' ? 'edit' : 'regeneration',
+					editSourceImageId:
+						strategy === 'edit' ? editSourceImageId : undefined,
+					consecutiveEditCount,
 				};
 
 				await this.requestService.addIteration(
@@ -625,6 +826,8 @@ export class OrchestrationService {
 					{
 						iteration: iterationSnapshot,
 						imageIds: imageRecords.map((img) => img.id),
+						strategy,
+						generationMode: request.generationMode,
 					},
 				);
 
@@ -663,12 +866,6 @@ export class OrchestrationService {
 
 				completedIterations = iteration;
 				const iterationTime = Date.now() - iterationStartTime;
-				// Phase durations: each phase starts where the previous ended
-				const optimizeMs = genStartTime - ragStartTime;
-				const generateMs = uploadStartTime - genStartTime;
-				const uploadMs = evalStartTime - uploadStartTime;
-				const evalMs =
-					iterationTime - optimizeMs - generateMs - uploadMs;
 				const negativeLines = (request.negativePrompts || '')
 					.split('\n')
 					.filter((l: string) => l.trim()).length;
@@ -677,14 +874,13 @@ export class OrchestrationService {
 						`Iteration: ${iteration}/${request.maxIterations} | ` +
 						`Score: ${topImage.aggregateScore.toFixed(2)} | ` +
 						`BestScore: ${bestScore.toFixed(2)} | ` +
+						`Strategy: ${strategy} | ` +
 						`Time: ${iterationTime}ms`,
 				);
 				this.logger.log(
 					`[ITERATION_TIMING] RequestID: ${requestId} | Iteration: ${iteration} | ` +
-						`Optimize: ${optimizeMs}ms | ` +
-						`Generate: ${generateMs}ms (${imageCount} parallel) | ` +
-						`Upload: ${uploadMs}ms (${imageCount} parallel) | ` +
-						`Evaluate: ${evalMs}ms (${imageCount}×${agents.length} parallel) | ` +
+						`Strategy: ${strategy} | ` +
+						`TotalTime: ${iterationTime}ms | ` +
 						`NegativePrompts: ${negativeLines}`,
 				);
 
@@ -921,7 +1117,6 @@ export class OrchestrationService {
 						Key: key,
 						Body: buffer,
 						ContentType: contentType,
-						ACL: 'public-read',
 					})
 					.promise(),
 			`S3Upload:${key}`,
@@ -1027,5 +1222,97 @@ export class OrchestrationService {
 		);
 
 		return capped;
+	}
+
+	/**
+	 * Select the iteration strategy (regenerate vs edit) based on mode and heuristics
+	 */
+	private selectIterationStrategy(
+		mode: GenerationMode,
+		iteration: number,
+		currentScore: number,
+		previousScores: number[],
+		topIssueSeverity: string | undefined,
+		consecutiveEditCount: number,
+	): 'regenerate' | 'edit' {
+		// Forced modes
+		if (mode === GenerationMode.REGENERATION) return 'regenerate';
+		if (mode === GenerationMode.EDIT && iteration > 1) {
+			// Even in pure edit mode, warn after 5 consecutive edits
+			if (consecutiveEditCount >= 5) {
+				this.logger.warn(
+					`[EDIT_DEGRADATION] ${consecutiveEditCount} consecutive edits — quality may degrade`,
+				);
+			}
+			return 'edit';
+		}
+
+		// Mixed mode: adaptive strategy
+		// Always regenerate iteration 1 (no image to edit yet)
+		if (iteration <= 1) return 'regenerate';
+
+		// Regenerate if score is too low (bad foundation, editing won't help)
+		if (currentScore < 50) return 'regenerate';
+
+		// Regenerate after 3 consecutive edits (prevent degradation — research Section 7)
+		if (consecutiveEditCount >= 3) return 'regenerate';
+
+		// Regenerate if TOP_ISSUE is critical or major (fundamental problem needs fresh start)
+		if (topIssueSeverity === 'critical' || topIssueSeverity === 'major') {
+			return 'regenerate';
+		}
+
+		// Edit mode for moderate/minor fixes when score is decent
+		if (
+			currentScore >= 50 &&
+			(topIssueSeverity === 'moderate' || topIssueSeverity === 'minor')
+		) {
+			return 'edit';
+		}
+
+		// Edit mode for plateau breaking
+		const recentScores = previousScores.slice(-3);
+		const isPlateauing =
+			recentScores.length >= 3 &&
+			Math.max(...recentScores) - Math.min(...recentScores) < 3;
+		if (isPlateauing && currentScore >= 65) return 'edit';
+
+		// Default: regenerate
+		return 'regenerate';
+	}
+
+	/**
+	 * Download an image from S3 and return as base64 string
+	 */
+	private async downloadImageAsBase64(imageId: string): Promise<string> {
+		const image = await this.requestService.getImage(imageId);
+		if (!image?.s3Key) {
+			throw new Error(`Image ${imageId} not found for edit mode`);
+		}
+
+		this.logger.debug(
+			`[EDIT_DOWNLOAD] Downloading image ${imageId} from S3`,
+		);
+
+		const s3Object = await this.s3
+			.getObject({
+				Bucket: process.env.AWS_S3_BUCKET!,
+				Key: image.s3Key,
+			})
+			.promise();
+
+		// Safe buffer conversion (Body can be Buffer | Uint8Array | Readable | string)
+		const body = s3Object.Body;
+		const buffer = Buffer.isBuffer(body) ? body : Buffer.from(body as any);
+
+		// Check size — keep under 2MB to avoid Gemini's automatic compression
+		const sizeMB = buffer.length / (1024 * 1024);
+		if (sizeMB > 2) {
+			this.logger.warn(
+				`[EDIT_SIZE_WARNING] Image ${imageId} is ${sizeMB.toFixed(1)}MB (recommended < 2MB)`,
+			);
+		}
+
+		return buffer.toString('base64');
 	}
 }

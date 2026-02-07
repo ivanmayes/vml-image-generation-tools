@@ -55,6 +55,8 @@ export class DebugOutputService {
 	private readonly logger = new Logger(DebugOutputService.name);
 	private readonly enabled: boolean;
 	private readonly outputDir: string;
+	/** Cache session directories so they don't change if a run crosses midnight */
+	private readonly sessionDirs = new Map<string, string>();
 
 	constructor() {
 		this.enabled = process.env.IMAGE_GEN_DEBUG_OUTPUT === 'true';
@@ -244,11 +246,17 @@ export class DebugOutputService {
 	}
 
 	/**
-	 * Get the session directory for a request
+	 * Get the session directory for a request.
+	 * Caches the path so it stays consistent even if a run crosses midnight.
 	 */
 	private getSessionDir(requestId: string): string {
+		const cached = this.sessionDirs.get(requestId);
+		if (cached) return cached;
+
 		const timestamp = new Date().toISOString().split('T')[0];
-		return path.join(this.outputDir, `${timestamp}_${requestId}`);
+		const dir = path.join(this.outputDir, `${timestamp}_${requestId}`);
+		this.sessionDirs.set(requestId, dir);
+		return dir;
 	}
 
 	/**

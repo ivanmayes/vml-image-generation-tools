@@ -238,6 +238,153 @@ export class GeminiImageService {
 	}
 
 	/**
+	 * Edit an existing image with a targeted instruction.
+	 * Uses the same generateContent API but includes the source image in contents.
+	 */
+	public async editImage(
+		sourceImageBase64: string,
+		editInstruction: string,
+		options: GeminiImageOptions = {},
+	): Promise<GeneratedImageResult> {
+		const startTime = Date.now();
+		this.logger.log(
+			`[GEMINI_EDIT_START] Instruction: "${editInstruction.substring(0, 80)}..." | ` +
+				`SourceSize: ${Math.round((sourceImageBase64.length * 0.75) / 1024)}KB`,
+		);
+
+		if (this.mockMode) {
+			await new Promise((resolve) => setTimeout(resolve, 100));
+			const mockResult = this.generateMockImage();
+			this.logger.log(`[GEMINI_EDIT_MOCK] Generated mock edited image`);
+			return mockResult;
+		}
+
+		try {
+			const apiCallStart = Date.now();
+
+			const contents: any[] = [
+				{
+					inlineData: {
+						mimeType: 'image/jpeg',
+						data: sourceImageBase64,
+					},
+				},
+				{ text: editInstruction },
+			];
+
+			const result = await this.client.models.generateContent({
+				model: this.imageModel,
+				contents,
+				config: {
+					responseModalities: ['TEXT', 'IMAGE'],
+					...(options.aspectRatio && {
+						imageConfig: { aspectRatio: options.aspectRatio },
+					}),
+				},
+			});
+
+			const apiCallTime = Date.now() - apiCallStart;
+
+			// Same response parsing as generateImage()
+			const imagePart = result.candidates?.[0]?.content?.parts?.find(
+				(part: any) => part.inlineData,
+			);
+
+			if (!imagePart?.inlineData?.data) {
+				this.logger.error(
+					`[GEMINI_EDIT_ERROR] No image data in response | APITime: ${apiCallTime}ms`,
+				);
+				this.logger.debug(
+					`[GEMINI_EDIT_DEBUG] Response parts: ${JSON.stringify(
+						result.candidates?.[0]?.content?.parts?.map((p: any) =>
+							Object.keys(p),
+						),
+					)}`,
+				);
+				throw new Error('No image data in edit response');
+			}
+
+			const imageData = Buffer.from(
+				imagePart.inlineData.data as string,
+				'base64',
+			);
+			const totalTime = Date.now() - startTime;
+
+			this.logger.log(
+				`[GEMINI_EDIT_COMPLETE] Size: ${imageData.length} bytes | ` +
+					`MimeType: ${imagePart.inlineData.mimeType || 'image/jpeg'} | ` +
+					`APITime: ${apiCallTime}ms | TotalTime: ${totalTime}ms`,
+			);
+
+			return {
+				imageData,
+				mimeType: imagePart.inlineData.mimeType || 'image/jpeg',
+			};
+		} catch (error) {
+			const totalTime = Date.now() - startTime;
+			const message =
+				error instanceof Error ? error.message : 'Unknown error';
+			this.logger.error(
+				`[GEMINI_EDIT_FAILED] Error: ${message} | Time: ${totalTime}ms`,
+			);
+			throw error;
+		}
+	}
+
+	/**
+	 * Edit an image multiple times in parallel.
+	 * Each edit starts from the SAME source image with the SAME instruction
+	 * to produce variation while preserving the source foundation.
+	 */
+	public async editImages(
+		sourceImageBase64: string,
+		editInstruction: string,
+		count: number,
+		options: GeminiImageOptions = {},
+	): Promise<GeneratedImageResult[]> {
+		const startTime = Date.now();
+		this.logger.log(
+			`[GEMINI_EDIT_BATCH_START] Count: ${count} | ` +
+				`Instruction: "${editInstruction.substring(0, 60)}..."`,
+		);
+
+		const promises = Array.from({ length: count }, (_, i) => {
+			this.logger.debug(
+				`[GEMINI_EDIT_BATCH_PROGRESS] Editing image ${i + 1}/${count}`,
+			);
+			return this.editImage(sourceImageBase64, editInstruction, options);
+		});
+
+		const settled = await Promise.allSettled(promises);
+		const errors = settled.filter(
+			(r): r is PromiseRejectedResult => r.status === 'rejected',
+		);
+		if (errors.length > 0) {
+			this.logger.error(
+				`[GEMINI_EDIT_BATCH_FAIL] ${errors.length}/${count} edits failed`,
+			);
+			throw errors[0].reason;
+		}
+
+		const results = settled.map(
+			(r) => (r as PromiseFulfilledResult<GeneratedImageResult>).value,
+		);
+
+		const totalTime = Date.now() - startTime;
+		const totalBytes = results.reduce(
+			(sum, r) => sum + r.imageData.length,
+			0,
+		);
+		this.logger.log(
+			`[GEMINI_EDIT_BATCH_COMPLETE] Edited: ${results.length}/${count} | ` +
+				`TotalBytes: ${totalBytes} | ` +
+				`TotalTime: ${totalTime}ms`,
+		);
+
+		return results;
+	}
+
+	/**
 	 * Generate multiple images from a prompt
 	 */
 	public async generateImages(

@@ -11,6 +11,7 @@ import {
 	GeneratedImage,
 	IterationSnapshot,
 	RequestCosts,
+	GenerationMode,
 } from '../entities';
 
 @Injectable()
@@ -269,6 +270,7 @@ export class GenerationRequestService {
 		additionalIterations: number,
 		judgeIds?: string[],
 		promptOverride?: string,
+		generationMode?: GenerationMode,
 	): Promise<GenerationRequest> {
 		const request = await this.requestRepository.findOne({ where: { id } });
 
@@ -295,6 +297,11 @@ export class GenerationRequestService {
 		// Set prompt override for next iteration
 		if (promptOverride) {
 			request.initialPrompt = promptOverride;
+		}
+
+		// Switch mode if provided
+		if (generationMode) {
+			request.generationMode = generationMode;
 		}
 
 		return this.requestRepository.save(request);
@@ -335,7 +342,6 @@ export class GenerationRequestService {
 				Key: s3Key,
 				Body: buffer,
 				ContentType: mimeType,
-				ACL: 'public-read',
 			})
 			.promise();
 
