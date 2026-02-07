@@ -168,7 +168,7 @@ export class GeminiImageService {
 
 				// Add instruction for how to use reference images
 				contents.push({
-					text: 'Use the above image(s) as style and visual reference for the following generation. ',
+					text: 'IMPORTANT: The above image(s) are reference images. You MUST closely match their visual style, color palette, composition, product appearance, and overall aesthetic in the generated image. Treat these references as the ground truth for how the output should look. Now generate the following: ',
 				});
 			}
 
@@ -183,6 +183,9 @@ export class GeminiImageService {
 				contents: contents.length === 1 ? prompt : contents,
 				config: {
 					responseModalities: ['TEXT', 'IMAGE'],
+					...(options.aspectRatio && {
+						imageConfig: { aspectRatio: options.aspectRatio },
+					}),
 				},
 			});
 			const apiCallTime = Date.now() - apiCallStart;

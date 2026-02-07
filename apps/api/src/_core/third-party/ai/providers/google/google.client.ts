@@ -109,10 +109,10 @@ export class GoogleClient {
 	/**
 	 * Convert internal message format to Google format
 	 */
-	private static convertMessages(messages: AIMessage[]): {
+	private static async convertMessages(messages: AIMessage[]): Promise<{
 		systemInstruction?: string;
 		contents: Content[];
-	} {
+	}> {
 		let systemInstruction: string | undefined;
 		const contents: Content[] = [];
 
@@ -186,6 +186,41 @@ export class GoogleClient {
 									data: part.image.base64,
 								},
 							});
+						} else if (part.image.url) {
+							try {
+								const response = await fetch(part.image.url);
+								if (!response.ok) {
+									console.warn(
+										`[GoogleClient] Failed to fetch image from URL (HTTP ${response.status}): ${part.image.url}`,
+									);
+									continue;
+								}
+								const buffer = Buffer.from(
+									await response.arrayBuffer(),
+								);
+								const contentType =
+									response.headers.get('content-type');
+								const mimeType =
+									part.image.mimeType ??
+									(contentType
+										? contentType.split(';')[0].trim()
+										: 'image/jpeg');
+								parts.push({
+									inlineData: {
+										mimeType,
+										data: buffer.toString('base64'),
+									},
+								});
+							} catch (err) {
+								console.warn(
+									`[GoogleClient] Error fetching image from URL: ${part.image.url}`,
+									err instanceof Error ? err.message : err,
+								);
+							}
+						} else {
+							console.warn(
+								'[GoogleClient] Image part has neither base64 nor url — skipping',
+							);
 						}
 					}
 				}
@@ -271,7 +306,7 @@ export class GoogleClient {
 			this.config.defaultModel ??
 			AIModel.Gemini15Pro;
 
-		const { systemInstruction, contents } = this.convertMessages(
+		const { systemInstruction, contents } = await this.convertMessages(
 			request.messages,
 		);
 
@@ -353,7 +388,7 @@ export class GoogleClient {
 			this.config.defaultModel ??
 			AIModel.Gemini15Pro;
 
-		const { systemInstruction, contents } = this.convertMessages(
+		const { systemInstruction, contents } = await this.convertMessages(
 			request.messages,
 		);
 
@@ -456,6 +491,41 @@ export class GoogleClient {
 							data: img.base64,
 						},
 					});
+				} else if (img.url) {
+					try {
+						const response = await fetch(img.url);
+						if (!response.ok) {
+							console.warn(
+								`[GoogleClient] Failed to fetch image from URL (HTTP ${response.status}): ${img.url}`,
+							);
+							continue;
+						}
+						const buffer = Buffer.from(
+							await response.arrayBuffer(),
+						);
+						const contentType =
+							response.headers.get('content-type');
+						const mimeType =
+							img.mimeType ??
+							(contentType
+								? contentType.split(';')[0].trim()
+								: 'image/jpeg');
+						parts.push({
+							inlineData: {
+								mimeType,
+								data: buffer.toString('base64'),
+							},
+						});
+					} catch (err) {
+						console.warn(
+							`[GoogleClient] Error fetching image from URL: ${img.url}`,
+							err instanceof Error ? err.message : err,
+						);
+					}
+				} else {
+					console.warn(
+						'[GoogleClient] Vision image has neither base64 nor url — skipping',
+					);
 				}
 			}
 
