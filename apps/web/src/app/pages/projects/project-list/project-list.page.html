@@ -1,0 +1,61 @@
+<div class="project-list-page">
+	<!-- Header -->
+	<div class="list-header">
+		<h1 class="heading-page m-0">My Projects</h1>
+		<p-button
+			label="New Project"
+			icon="pi pi-plus"
+			(onClick)="onCreateProject()"
+		/>
+	</div>
+
+	<!-- Loading skeleton -->
+	@if (loading()) {
+	<div class="list-skeleton">
+		@for (row of skeletonRows; track $index) {
+		<div class="skeleton-shimmer list-skeleton__row"></div>
+		}
+	</div>
+	}
+
+	<!-- Project list -->
+	@if (!loading()) { @if (projects().length === 0) {
+	<!-- Empty state -->
+	<div class="list-empty">
+		<div class="list-empty__icon">
+			<i class="pi pi-folder"></i>
+		</div>
+		<h3 class="heading-section mb-2">No projects yet</h3>
+		<p class="text-color-secondary mb-4">
+			Create a project to organize your image generation work.
+		</p>
+		<p-button
+			label="Create your first project"
+			icon="pi pi-plus"
+			(onClick)="onCreateProject()"
+		/>
+	</div>
+	} @else {
+	<div class="project-grid">
+		@for (project of projects(); track project.id) {
+		<div class="project-card" (click)="onProjectClick(project)">
+			<div class="project-card__icon">
+				<i class="pi pi-folder"></i>
+			</div>
+			<div class="project-card__content">
+				<h3 class="project-card__name">{{ project.name }}</h3>
+				@if (project.description) {
+				<p class="project-card__description">
+					{{ project.description }}
+				</p>
+				}
+				<span class="project-card__date">
+					Created {{ project.createdAt | date : "mediumDate" }}
+				</span>
+			</div>
+		</div>
+		}
+	</div>
+	} }
+</div>
+<p-toast></p-toast>

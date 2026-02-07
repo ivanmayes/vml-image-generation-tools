@@ -1,0 +1,33 @@
+<div class="project-detail-page">
+	@if (loading()) {
+	<div class="detail-skeleton">
+		<div
+			class="skeleton-shimmer"
+			style="height: 80px; margin-bottom: 16px"
+		></div>
+		<div class="skeleton-shimmer" style="height: 200px"></div>
+	</div>
+	} @else if (project(); as proj) {
+	<!-- Header -->
+	<div class="detail-header">
+		<div class="detail-header__nav">
+			<p-button
+				icon="pi pi-arrow-left"
+				[text]="true"
+				(onClick)="onBack()"
+			/>
+			<span class="text-caption">PROJECTS</span>
+		</div>
+		<h1 class="heading-page m-0">{{ proj.name }}</h1>
+		@if (proj.description) {
+		<p class="text-color-secondary mt-1 mb-0">{{ proj.description }}</p>
+		}
+	</div>
+
+	<!-- Tool Grid -->
+	<div class="detail-content">
+		<h2 class="heading-section mt-0 mb-3">Tools</h2>
+		<app-toolbox-grid [baseRoute]="baseRoute" />
+	</div>
+	}
+</div>

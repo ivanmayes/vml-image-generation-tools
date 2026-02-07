@@ -1,0 +1,39 @@
+@use "../../../../theme/utils" as *;
+
+.project-detail-page {
+	animation: fadeSlideIn 0.3s ease both;
+}
+
+.detail-skeleton {
+	padding: 24px;
+}
+
+.detail-header {
+	padding: 20px 24px;
+	border-bottom: 1px solid var(--p-surface-100);
+
+	&__nav {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		margin-bottom: 8px;
+	}
+}
+
+.detail-content {
+	padding: 24px;
+}
+
+@include mobile {
+	.detail-header {
+		padding: 12px 16px;
+	}
+
+	.detail-content {
+		padding: 16px;
+	}
+
+	.detail-skeleton {
+		padding: 16px;
+	}
+}
