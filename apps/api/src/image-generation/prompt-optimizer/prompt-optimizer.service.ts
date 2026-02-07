@@ -8,7 +8,7 @@ import {
 	AIMessage,
 	AIProvider,
 } from '../../_core/third-party/ai';
-import { PromptOptimizer, Agent } from '../entities';
+import { PromptOptimizer, Agent, DEFAULT_OPTIMIZER_PROMPT } from '../entities';
 import { DocumentProcessorService } from '../document-processor/document-processor.service';
 
 interface TopIssue {
@@ -25,6 +25,7 @@ interface JudgeFeedback {
 	weight: number;
 	topIssue?: TopIssue;
 	whatWorked?: string[];
+	promptInstructions?: string[];
 }
 
 interface OptimizePromptInput {
@@ -34,6 +35,7 @@ interface OptimizePromptInput {
 	previousPrompts?: string[];
 	negativePrompts?: string;
 	referenceContext?: string;
+	hasReferenceImages?: boolean;
 }
 
 @Injectable()
@@ -64,7 +66,9 @@ export class PromptOptimizerService implements OnModuleInit {
 		let optimizer = await this.optimizerRepository.findOne({ where: {} });
 
 		if (!optimizer) {
-			optimizer = this.optimizerRepository.create({});
+			optimizer = this.optimizerRepository.create({
+				systemPrompt: DEFAULT_OPTIMIZER_PROMPT,
+			});
 			optimizer = await this.optimizerRepository.save(optimizer);
 			this.logger.log('Created default prompt optimizer configuration');
 		}
@@ -112,14 +116,13 @@ export class PromptOptimizerService implements OnModuleInit {
 		this.logger.debug(
 			`[OPTIMIZE_CONTEXT] MessageLength: ${userMessage.length} chars | ` +
 				`HasNegativePrompts: ${!!input.negativePrompts} | ` +
-				`HasReferenceContext: ${!!input.referenceContext}`,
+				`HasReferenceContext: ${!!input.referenceContext} | ` +
+				`HasReferenceImages: ${!!input.hasReferenceImages}`,
 		);
 
 		// Build messages with proper types
 		// Use default system prompt if somehow null (defensive coding)
-		const systemPrompt =
-			optimizer.systemPrompt ||
-			'You are an expert prompt optimizer for AI image generation. Output ONLY the optimized prompt.';
+		const systemPrompt = optimizer.systemPrompt || DEFAULT_OPTIMIZER_PROMPT;
 		const messages: AIMessage[] = [
 			{ role: AIMessageRole.System, content: systemPrompt },
 			{ role: AIMessageRole.User, content: userMessage },
@@ -172,6 +175,17 @@ export class PromptOptimizerService implements OnModuleInit {
 		parts.push('## Original Brief');
 		parts.push(input.originalBrief);
 		parts.push('');
+
+		// Reference image awareness (placed early for high priority)
+		if (input.hasReferenceImages) {
+			parts.push('## Reference Images');
+			parts.push(
+				'Reference images are attached to this generation request. The optimized prompt MUST include ' +
+					'explicit instructions to match the visual style, composition, colors, and details of the ' +
+					'provided reference image(s). Do NOT omit reference image guidance from the prompt.',
+			);
+			parts.push('');
+		}
 
 		// Current prompt (if iterating)
 		if (input.currentPrompt) {
@@ -263,15 +277,62 @@ export class PromptOptimizerService implements OnModuleInit {
 			parts.push('');
 		}
 
+		// Collect prompt instructions from judges (exact text to include)
+		const allPromptInstructions = input.judgeFeedback
+			.flatMap((f) =>
+				(f.promptInstructions ?? []).map((instr) => ({
+					instruction: instr,
+					agentName: f.agentName,
+				})),
+			)
+			.filter(
+				(item, i, arr) =>
+					arr.findIndex((x) => x.instruction === item.instruction) ===
+					i,
+			); // dedupe
+
+		if (allPromptInstructions.length > 0) {
+			parts.push('## JUDGE PROMPT INSTRUCTIONS (Must Include Verbatim)');
+			parts.push(
+				'The following are exact text snippets or instructions from judges that MUST appear in the optimized prompt. Include them verbatim—do not paraphrase.',
+			);
+			parts.push('');
+			allPromptInstructions.forEach((item, i) => {
+				parts.push(
+					`${i + 1}. [from ${item.agentName}]: "${item.instruction}"`,
+				);
+			});
+			parts.push('');
+		}
+
 		parts.push('## Task');
-		parts.push('Generate an improved image generation prompt that:');
 		parts.push(
-			'1. FIRST addresses the CRITICAL ISSUES listed above, in order',
+			'Generate an improved image generation prompt. The output MUST be:',
 		);
-		parts.push('2. PRESERVES what worked well');
-		parts.push('3. Incorporates detailed feedback from judges');
+		parts.push(
+			'1. At least 500 words, organized into sections: TECHNICAL PARAMETERS, COMPOSITION & NARRATIVE, SETTING & AMBIANCE, KEY OBJECTS, FINAL NOTES',
+		);
+		parts.push(
+			'2. FIRST address the CRITICAL ISSUES listed above, in priority order',
+		);
+		parts.push(
+			'3. PRESERVE what worked well—do not lose successful elements',
+		);
+		parts.push(
+			'4. Include all JUDGE PROMPT INSTRUCTIONS verbatim in the appropriate sections',
+		);
+		parts.push(
+			'5. Incorporate detailed feedback from judges into specific, actionable prompt language',
+		);
+		if (input.hasReferenceImages) {
+			parts.push(
+				'6. Include explicit instructions to match the provided reference images',
+			);
+		}
 		parts.push('');
-		parts.push('Output ONLY the optimized prompt, nothing else.');
+		parts.push(
+			'Output ONLY the optimized prompt with section headers. No commentary, no explanations.',
+		);
 
 		return parts.join('\n');
 	}
