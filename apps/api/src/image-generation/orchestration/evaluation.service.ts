@@ -15,6 +15,12 @@ export interface TopIssue {
 	fix: string;
 }
 
+export interface IterationContext {
+	currentIteration: number;
+	maxIterations: number;
+	previousScores: number[];
+}
+
 export interface EvaluationResult {
 	agentId: string;
 	agentName: string;
@@ -26,6 +32,7 @@ export interface EvaluationResult {
 	topIssue?: TopIssue;
 	whatWorked?: string[];
 	checklist?: Record<string, { passed: boolean; note?: string }>;
+	promptInstructions?: string[];
 }
 
 export interface AggregatedEvaluation {
@@ -50,6 +57,7 @@ export class EvaluationService {
 		agent: Agent,
 		image: GeneratedImage,
 		brief: string,
+		iterationContext?: IterationContext,
 	): Promise<EvaluationResult> {
 		const startTime = Date.now();
 		this.logger.log(
@@ -102,6 +110,7 @@ export class EvaluationService {
 			brief,
 			image.promptUsed,
 			ragContext,
+			iterationContext,
 		);
 		this.logger.debug(
 			`[EVAL_PROMPT] Agent: ${agent.name} | PromptLength: ${evaluationPrompt.length} chars`,
@@ -165,6 +174,7 @@ export class EvaluationService {
 			topIssue: evaluation.topIssue,
 			whatWorked: evaluation.whatWorked,
 			checklist: evaluation.checklist,
+			promptInstructions: evaluation.promptInstructions,
 		};
 	}
 
@@ -175,6 +185,7 @@ export class EvaluationService {
 		agents: Agent[],
 		image: GeneratedImage,
 		brief: string,
+		iterationContext?: IterationContext,
 	): Promise<EvaluationResult[]> {
 		const startTime = Date.now();
 		this.logger.log(
@@ -182,7 +193,9 @@ export class EvaluationService {
 		);
 
 		const evaluations = await Promise.all(
-			agents.map((agent) => this.evaluateImage(agent, image, brief)),
+			agents.map((agent) =>
+				this.evaluateImage(agent, image, brief, iterationContext),
+			),
 		);
 
 		const totalTime = Date.now() - startTime;
@@ -261,11 +274,28 @@ export class EvaluationService {
 		brief: string,
 		promptUsed: string,
 		ragContext: string,
+		iterationContext?: IterationContext,
 	): string {
 		const parts: string[] = [];
 
 		parts.push('## Task: Evaluate this image');
 		parts.push('');
+
+		// Add iteration context if available
+		if (iterationContext && iterationContext.previousScores.length > 0) {
+			parts.push('### Iteration Context');
+			parts.push(
+				`This is iteration ${iterationContext.currentIteration} of ${iterationContext.maxIterations}. ` +
+					`Previous scores: [${iterationContext.previousScores.join(', ')}].`,
+			);
+			parts.push(
+				'Score the image on its absolute merits. If this iteration genuinely improved on previous issues, ' +
+					'the score SHOULD increase. If the same problems persist, the score should NOT increase. ' +
+					'Do not inflate scores just because this is a later iteration.',
+			);
+			parts.push('');
+		}
+
 		parts.push('### Original Brief');
 		parts.push(brief);
 		parts.push('');
@@ -302,9 +332,18 @@ export class EvaluationService {
 				'  "categoryScores": { "<category>": <number 0-100>, ... },',
 			);
 			parts.push('  "whatWorked": ["<positive aspect>", ...],');
+			parts.push(
+				'  "promptInstructions": ["<exact text snippet or instruction to include in next prompt>", ...],',
+			);
 			parts.push('  "feedback": "<detailed feedback for improvement>"');
 			parts.push('}');
 			parts.push('```');
+			parts.push('');
+			parts.push(
+				'The `promptInstructions` field should contain exact text snippets or specific instructions ' +
+					'that should appear verbatim in the next generation prompt. For example: ' +
+					'"Add rim lighting at 5600K from behind the subject" or "The bottle label must read RESERVE 18 in gold serif font".',
+			);
 		}
 
 		return parts.join('\n');
@@ -320,6 +359,7 @@ export class EvaluationService {
 		topIssue?: TopIssue;
 		whatWorked?: string[];
 		checklist?: Record<string, { passed: boolean; note?: string }>;
+		promptInstructions?: string[];
 	} {
 		try {
 			// Extract JSON from response
@@ -363,6 +403,17 @@ export class EvaluationService {
 			// Parse checklist if present
 			const checklist = parsed.checklist;
 
+			// Parse promptInstructions if present
+			const rawPromptInstructions =
+				parsed.promptInstructions || parsed.prompt_instructions;
+			const promptInstructions = Array.isArray(rawPromptInstructions)
+				? (rawPromptInstructions
+						.filter(
+							(i: unknown) => typeof i === 'string' && i.trim(),
+						)
+						.map((i: string) => i.trim()) as string[])
+				: undefined;
+
 			return {
 				score: Math.min(100, Math.max(0, score)),
 				categoryScores: parsed.categoryScores,
@@ -370,6 +421,7 @@ export class EvaluationService {
 				topIssue,
 				whatWorked: Array.isArray(whatWorked) ? whatWorked : undefined,
 				checklist,
+				promptInstructions,
 			};
 		} catch (error) {
 			this.logger.warn(`Failed to parse evaluation response: ${content}`);
@@ -399,6 +451,7 @@ export class EvaluationService {
 			topIssue: e.topIssue,
 			whatWorked: e.whatWorked,
 			checklist: e.checklist,
+			promptInstructions: e.promptInstructions,
 		}));
 	}
 }

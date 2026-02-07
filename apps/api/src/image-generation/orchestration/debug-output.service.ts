@@ -18,6 +18,9 @@ export interface DebugIterationData {
 		score: number;
 		categoryScores?: Record<string, number>;
 		feedback: string;
+		topIssue?: { problem: string; severity: string; fix: string };
+		whatWorked?: string[];
+		promptInstructions?: string[];
 	}[];
 	aggregateScore: number;
 	selectedImageId: string;

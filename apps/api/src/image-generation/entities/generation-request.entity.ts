@@ -95,6 +95,7 @@ export interface AgentEvaluationSnapshot {
 	topIssue?: TopIssueSnapshot;
 	whatWorked?: string[];
 	checklist?: Record<string, { passed: boolean; note?: string }>;
+	promptInstructions?: string[];
 }
 
 /**

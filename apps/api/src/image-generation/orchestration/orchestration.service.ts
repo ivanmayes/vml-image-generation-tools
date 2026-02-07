@@ -14,7 +14,11 @@ import {
 import { JobQueueService } from '../jobs/job-queue.service';
 
 import { GeminiImageService } from './gemini-image.service';
-import { EvaluationService, EvaluationResult } from './evaluation.service';
+import {
+	EvaluationService,
+	EvaluationResult,
+	IterationContext,
+} from './evaluation.service';
 import { DebugOutputService, DebugIterationData } from './debug-output.service';
 import {
 	GenerationEventsService,
@@ -283,9 +287,9 @@ export class OrchestrationService {
 								feedback: e.feedback,
 								score: e.overallScore,
 								weight: e.weight,
-								// Include structured feedback fields if present
-								topIssue: (e as any).topIssue,
-								whatWorked: (e as any).whatWorked,
+								topIssue: e.topIssue,
+								whatWorked: e.whatWorked,
+								promptInstructions: e.promptInstructions,
 							}))
 						: [];
 
@@ -313,6 +317,8 @@ export class OrchestrationService {
 							previousPrompts,
 							negativePrompts: request.negativePrompts,
 							referenceContext: ragContext,
+							hasReferenceImages:
+								!!request.referenceImageUrls?.length,
 						});
 				}
 
@@ -476,6 +482,15 @@ export class OrchestrationService {
 				const evalStartTime = Date.now();
 				const evaluationsByImage = new Map();
 
+				// Build iteration context for judges
+				const iterationContext: IterationContext = {
+					currentIteration: iteration,
+					maxIterations: request.maxIterations,
+					previousScores: latestIterations.map(
+						(iter) => iter.aggregateScore,
+					),
+				};
+
 				// Evaluate all images in parallel for faster throughput
 				// Use Promise.allSettled to avoid unhandled rejections when one fails before others complete
 				const evalSettled = await Promise.allSettled(
@@ -489,6 +504,7 @@ export class OrchestrationService {
 								agentsWithDocs.filter(Boolean) as any[],
 								image,
 								request.brief,
+								iterationContext,
 							);
 
 						// Log individual scores
@@ -586,6 +602,9 @@ export class OrchestrationService {
 						score: e.overallScore,
 						categoryScores: e.categoryScores,
 						feedback: e.feedback,
+						topIssue: e.topIssue,
+						whatWorked: e.whatWorked,
+						promptInstructions: e.promptInstructions,
 					})),
 					aggregateScore: topImage.aggregateScore,
 					selectedImageId: topImage.imageId,
@@ -629,9 +648,9 @@ export class OrchestrationService {
 					);
 				}
 
-				// Track best result (always set on first iteration, then only if score improves)
+				// Track best result (use >= so ties go to the latest iteration's image)
 				const previousBestScore = bestScore;
-				if (!bestImageId || topImage.aggregateScore > bestScore) {
+				if (!bestImageId || topImage.aggregateScore >= bestScore) {
 					bestScore = topImage.aggregateScore;
 					bestImageId = topImage.imageId;
 					this.logger.log(
