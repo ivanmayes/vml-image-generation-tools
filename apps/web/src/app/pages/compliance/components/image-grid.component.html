@@ -1,0 +1,58 @@
+<!-- Drop zone -->
+<div
+	class="compliance-dropzone"
+	[class.compliance-dropzone--compact]="hasImages()"
+	appDropFile
+	(filesDropped)="onFilesDropped($event)"
+>
+	@if (!hasImages()) {
+		<i class="pi pi-cloud-upload compliance-dropzone__icon"></i>
+		<p class="compliance-dropzone__title">Drop images here to evaluate</p>
+		<p class="compliance-dropzone__subtitle">JPEG, PNG, or WebP images</p>
+	}
+
+	<div class="compliance-dropzone__actions">
+		<label class="p-button p-button-sm" tabindex="0">
+			<i class="pi pi-upload"></i>
+			Upload Files
+			<input
+				type="file"
+				accept="image/jpeg,image/png,image/webp"
+				multiple
+				hidden
+				(change)="onFileInput($event)"
+			/>
+		</label>
+		<button
+			pButton
+			class="p-button-outlined p-button-sm"
+			icon="pi pi-link"
+			label="Add URL"
+			(click)="urlClicked.emit()"
+			aria-label="Add image from URL"
+		></button>
+		<button
+			pButton
+			class="p-button-outlined p-button-sm"
+			icon="pi pi-images"
+			label="Browse Generated"
+			(click)="browseClicked.emit()"
+			aria-label="Browse generated images"
+		></button>
+	</div>
+</div>
+
+<!-- Image grid -->
+@if (hasImages()) {
+	<div class="compliance-grid">
+		@for (image of images(); track image.id) {
+			<app-image-card
+				[image]="image"
+				[index]="$index"
+				(remove)="removeImage.emit($event)"
+				(cardSelect)="selectImage.emit($event)"
+				(retry)="retryImage.emit($event)"
+			/>
+		}
+	</div>
+}

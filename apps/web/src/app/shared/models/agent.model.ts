@@ -7,9 +7,9 @@
  */
 
 // Import DTOs from API - these are the source of truth for request payloads
-export type { AgentCreateDto } from '@api/image-generation/agent/dtos';
-export type { AgentUpdateDto } from '@api/image-generation/agent/dtos';
-export type { RagConfigDto } from '@api/image-generation/agent/dtos';
+export type { AgentCreateDto } from '@api/agent/dtos';
+export type { AgentUpdateDto } from '@api/agent/dtos';
+export type { RagConfigDto } from '@api/agent/dtos';
 
 // RagConfig interface
 export interface RagConfig {

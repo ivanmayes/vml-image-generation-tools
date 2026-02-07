@@ -1,0 +1,121 @@
+<p-dialog
+	header="Compliance Report"
+	[visible]="visible()"
+	(visibleChange)="visibleChange.emit($event)"
+	[modal]="true"
+	[style]="{ width: '800px', maxHeight: '90vh' }"
+	[closable]="true"
+	[dismissableMask]="true"
+	styleClass="compliance-detail-dialog"
+>
+	@if (image() && isComplete()) {
+		<div
+			class="detail-layout"
+			#detailLayout
+			(keydown)="onKeydown($event)"
+			tabindex="0"
+		>
+			<!-- Image panel -->
+			<div class="detail-image">
+				<img [src]="image()!.url" alt="Compliance image" />
+			</div>
+
+			<!-- Summary panel -->
+			<div class="detail-summary">
+				<div class="detail-aggregate-score">
+					<span
+						class="detail-aggregate-score__value"
+						[style.color]="scoreColorVar()"
+					>
+						{{ aggregateScore() }}
+					</span>
+					<div>
+						<p-tag
+							[value]="getScoreLabel(aggregateScore())"
+							[severity]="getScoreSeverity(aggregateScore())"
+						/>
+						<span class="detail-aggregate-score__label">
+							aggregate score
+						</span>
+					</div>
+				</div>
+
+				<!-- Top issue from first evaluation that has one -->
+				@for (result of evaluations(); track result.agentId) {
+					@if (result.topIssue; as topIssue) {
+						<div class="detail-top-issue">
+							<div class="detail-top-issue__header">
+								<strong>Top Issue</strong>
+								<p-tag
+									[value]="topIssue.severity"
+									[severity]="
+										topIssue.severity === 'critical'
+											? 'danger'
+											: topIssue.severity === 'major'
+												? 'warn'
+												: 'info'
+									"
+								/>
+							</div>
+							<p class="detail-top-issue__text">
+								{{ topIssue.problem }}
+							</p>
+						</div>
+						<!-- Only show first top issue -->
+					}
+				}
+			</div>
+
+			<!-- Per-judge results -->
+			<div class="detail-judges">
+				@if (multipleJudges()) {
+					<p-accordion [multiple]="true">
+						@for (result of evaluations(); track result.agentId) {
+							<p-accordionpanel>
+								<p-accordionheader>
+									<span>{{ result.agentName }}</span>
+									<p-tag
+										[value]="result.overallScore + ''"
+										[severity]="
+											getScoreSeverity(
+												result.overallScore
+											)
+										"
+									/>
+								</p-accordionheader>
+								<p-accordioncontent>
+									<app-evaluation-results [result]="result" />
+								</p-accordioncontent>
+							</p-accordionpanel>
+						}
+					</p-accordion>
+				} @else if (evaluations().length === 1) {
+					<div class="detail-single-judge">
+						<app-evaluation-results [result]="evaluations()[0]" />
+					</div>
+				}
+			</div>
+		</div>
+
+		<!-- Navigation footer -->
+		<ng-template pTemplate="footer">
+			<div class="detail-nav">
+				<p-button
+					icon="pi pi-arrow-left"
+					label="Previous"
+					[text]="true"
+					[disabled]="!hasPrev()"
+					(onClick)="navigatePrev.emit()"
+				/>
+				<p-button
+					icon="pi pi-arrow-right"
+					iconPos="right"
+					label="Next"
+					[text]="true"
+					[disabled]="!hasNext()"
+					(onClick)="navigateNext.emit()"
+				/>
+			</div>
+		</ng-template>
+	}
+</p-dialog>

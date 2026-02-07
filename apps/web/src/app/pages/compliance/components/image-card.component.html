@@ -1,0 +1,123 @@
+<div
+	class="compliance-card"
+	[ngClass]="scoreClass()"
+	[class.compliance-card--clickable]="isComplete()"
+	[style.animation-delay]="(index() < 16 ? index() * 0.03 : 0.48) + 's'"
+	(click)="onClick()"
+	(keydown.enter)="onClick()"
+	[attr.tabindex]="isComplete() ? 0 : null"
+	[attr.role]="isComplete() ? 'button' : null"
+>
+	<!-- Image area -->
+	<div class="compliance-card__image">
+		@if (image().url) {
+			<img
+				[src]="image().url"
+				alt="Compliance image"
+				loading="lazy"
+				decoding="async"
+			/>
+		} @else {
+			<div class="compliance-card__placeholder">
+				<i class="pi pi-image"></i>
+			</div>
+		}
+
+		<!-- Status badge -->
+		@switch (image().status) {
+			@case ("uploading") {
+				<span
+					class="compliance-card__status compliance-card__status--uploading"
+				>
+					<i class="pi pi-spin pi-spinner"></i>
+					Uploading
+				</span>
+				<div class="compliance-card__progress">
+					<div
+						class="compliance-card__progress-fill compliance-card__progress-fill--indeterminate"
+					></div>
+				</div>
+			}
+			@case ("queued") {
+				<span
+					class="compliance-card__status compliance-card__status--queued"
+				>
+					<i class="pi pi-clock"></i>
+					Queued
+				</span>
+			}
+			@case ("evaluating") {
+				<span
+					class="compliance-card__status compliance-card__status--evaluating"
+				>
+					<i class="pi pi-spin pi-spinner"></i>
+					Evaluating
+				</span>
+				<div class="compliance-card__progress">
+					<div
+						class="compliance-card__progress-fill compliance-card__progress-fill--indeterminate"
+					></div>
+				</div>
+			}
+			@case ("failed") {
+				<span
+					class="compliance-card__status compliance-card__status--failed"
+				>
+					<i class="pi pi-exclamation-triangle"></i>
+					Failed
+				</span>
+			}
+		}
+
+		<!-- Remove button -->
+		<button
+			class="compliance-card__remove"
+			(click)="onRemove($event)"
+			title="Remove image"
+			aria-label="Remove image"
+		>
+			<i class="pi pi-times"></i>
+		</button>
+
+		<!-- Hover overlay for completed cards -->
+		@if (isComplete()) {
+			<div class="compliance-card__hover-overlay">
+				<span class="compliance-card__action-hint">View</span>
+			</div>
+		}
+	</div>
+
+	<!-- Footer -->
+	<div class="compliance-card__footer">
+		@if (isComplete()) {
+			<span
+				class="compliance-card__footer__score compliance-card__footer__score--{{
+					getScoreSeverity(aggregateScore())
+				}}"
+			>
+				{{ aggregateScore() }}
+			</span>
+			<span class="compliance-card__footer__label">
+				{{ evaluationCount() }} judge{{
+					evaluationCount() !== 1 ? "s" : ""
+				}}
+			</span>
+		} @else if (isFailed()) {
+			<span class="compliance-card__footer__error">
+				{{ errorMessage() }}
+			</span>
+			@if (canRetry()) {
+				<button
+					class="compliance-card__retry-btn"
+					(click)="onRetry($event)"
+				>
+					<i class="pi pi-refresh"></i> Retry
+				</button>
+			}
+		} @else {
+			<span class="compliance-card__footer__label">
+				{{ image().fileName || "Image" }}
+			</span>
+		}
+	</div>
+</div>

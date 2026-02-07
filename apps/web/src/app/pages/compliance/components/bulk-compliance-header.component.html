@@ -1,0 +1,45 @@
+<div class="bulk-header">
+	<div class="bulk-header__title">
+		<span class="text-caption">IMAGE COMPLIANCE</span>
+		<h1 class="heading-page m-0">Compliance Scan</h1>
+	</div>
+
+	<div class="bulk-header__controls">
+		<div class="bulk-header__field">
+			<label class="text-caption" for="judge-select">Judges</label>
+			@if (loading()) {
+				<p-skeleton width="100%" height="2.5rem" />
+			} @else {
+				<p-multiselect
+					inputId="judge-select"
+					[ngModel]="selectedJudgeIds()"
+					(ngModelChange)="selectedJudgeIdsChange.emit($event)"
+					[options]="judges()"
+					optionLabel="name"
+					optionValue="id"
+					placeholder="Select judges..."
+					display="chip"
+					[showClear]="true"
+					[appendTo]="'body'"
+					[disabled]="evaluating()"
+					class="w-full"
+				/>
+			}
+		</div>
+
+		<div class="bulk-header__field bulk-header__field--brief">
+			<label class="text-caption" for="brief-input">Brief</label>
+			<textarea
+				id="brief-input"
+				pInputTextarea
+				[ngModel]="brief()"
+				(ngModelChange)="briefChange.emit($event)"
+				placeholder="Describe what to evaluate against..."
+				[rows]="1"
+				[autoResize]="true"
+				[disabled]="evaluating()"
+				class="w-full"
+			></textarea>
+		</div>
+	</div>
+</div>

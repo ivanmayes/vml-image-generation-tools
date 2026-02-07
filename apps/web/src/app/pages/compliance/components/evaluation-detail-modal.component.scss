@@ -1,0 +1,115 @@
+@use "../../../../theme/utils" as *;
+
+:host ::ng-deep .compliance-detail-dialog .p-dialog-content {
+	padding: 0;
+}
+
+.detail-layout {
+	display: grid;
+	grid-template-columns: 22.5rem 1fr;
+	grid-template-rows: auto 1fr;
+	min-height: 25rem;
+	outline: none;
+
+	@include mobile {
+		grid-template-columns: 1fr;
+	}
+}
+
+.detail-image {
+	grid-row: 1 / 3;
+	background: var(--p-surface-100);
+	display: flex;
+	align-items: flex-start;
+	justify-content: center;
+	padding: 1.5rem;
+	border-right: 1px solid var(--p-surface-200);
+	position: sticky;
+	top: 0;
+	align-self: start;
+	max-height: 22.5rem;
+
+	img {
+		max-width: 100%;
+		max-height: 20rem;
+		object-fit: contain;
+		border-radius: 0.25rem;
+	}
+
+	@include mobile {
+		grid-row: auto;
+		position: static;
+		border-right: none;
+		border-bottom: 1px solid var(--p-surface-200);
+		max-height: 15rem;
+		padding: 1rem;
+	}
+}
+
+.detail-summary {
+	padding: 1.5rem;
+	border-bottom: 1px solid var(--p-surface-200);
+}
+
+.detail-aggregate-score {
+	display: flex;
+	align-items: baseline;
+	gap: 0.75rem;
+	margin-bottom: 1rem;
+
+	&__value {
+		font-size: 3.5rem;
+		font-weight: 700;
+		font-family: "Roboto Mono", monospace;
+		line-height: 1;
+	}
+
+	&__label {
+		display: block;
+		font-size: 0.75rem;
+		color: var(--p-text-muted-color);
+		text-transform: uppercase;
+		letter-spacing: 0.04em;
+		margin-top: 0.25rem;
+	}
+}
+
+.detail-top-issue {
+	background: var(--p-surface-50);
+	border-left: 3px solid var(--p-orange-500);
+	padding: 0.75rem 1rem;
+	border-radius: 0 0.375rem 0.375rem 0;
+
+	&__header {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		margin-bottom: 0.25rem;
+	}
+
+	&__text {
+		font-size: 0.875rem;
+		color: var(--p-text-color);
+		margin: 0;
+	}
+}
+
+.detail-judges {
+	padding: 0;
+	overflow-y: auto;
+	grid-column: 2;
+
+	@include mobile {
+		grid-column: 1;
+	}
+}
+
+.detail-single-judge {
+	padding: 1rem 1.5rem;
+}
+
+.detail-nav {
+	display: flex;
+	justify-content: space-between;
+	width: 100%;
+}

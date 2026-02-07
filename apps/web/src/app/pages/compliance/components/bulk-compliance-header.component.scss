@@ -1,0 +1,61 @@
+@use "../../../../theme/utils" as *;
+
+.bulk-header {
+	display: flex;
+	align-items: flex-start;
+	gap: 1.5rem;
+	padding: 0.875rem 1.5rem;
+	border-bottom: 1px solid var(--p-surface-200);
+	background: var(--p-surface-0);
+	position: sticky;
+	top: 0;
+	z-index: 10;
+	animation: fade-slide-in 0.2s ease both;
+}
+
+.bulk-header__title {
+	flex-shrink: 0;
+	min-width: 8.75rem;
+}
+
+.bulk-header__controls {
+	display: flex;
+	align-items: flex-start;
+	gap: 1rem;
+	flex: 1;
+	min-width: 0;
+}
+
+.bulk-header__field {
+	display: flex;
+	flex-direction: column;
+	gap: 0.25rem;
+	min-width: 15rem;
+
+	&--brief {
+		flex: 1;
+		min-width: 12.5rem;
+	}
+
+	label {
+		font-size: 0.6875rem;
+	}
+}
+
+@include mobile {
+	.bulk-header {
+		flex-direction: column;
+		gap: 0.75rem;
+		padding: 0.75rem 1rem;
+	}
+
+	.bulk-header__controls {
+		flex-direction: column;
+		width: 100%;
+	}
+
+	.bulk-header__field {
+		min-width: unset;
+		width: 100%;
+	}
+}

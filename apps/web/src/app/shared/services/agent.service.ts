@@ -1,8 +1,25 @@
 import { Injectable } from '@angular/core';
-import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 
 import { environment } from '../../../environments/environment';
+import type {
+	Agent,
+	AgentDocument,
+	EvaluationResponse,
+	AgentCreateDto,
+	AgentUpdateDto,
+} from '../models/agent.model';
+
+interface ApiResponse<T> {
+	status: string;
+	message?: string;
+	data?: T;
+}
+
+interface UploadResponse {
+	url: string;
+}
 
 @Injectable({
 	providedIn: 'root',
@@ -15,113 +32,106 @@ export class AgentService {
 
 	constructor(private readonly http: HttpClient) {}
 
-	// List agents with optional search/sort
 	getAgents(
 		orgId: string,
 		query?: string,
 		sortBy?: string,
 		order?: string,
-	): Observable<any> {
-		let url = `${this.apiUrl}/organization/${orgId}/image-generation/agents`;
-		const params: string[] = [];
+	): Observable<ApiResponse<Agent[]>> {
+		let params = new HttpParams();
+		if (query) params = params.set('query', query);
+		if (sortBy) params = params.set('sortBy', sortBy);
+		if (order) params = params.set('order', order);
 
-		if (query) {
-			params.push(`query=${encodeURIComponent(query)}`);
-		}
-		if (sortBy) {
-			params.push(`sortBy=${sortBy}`);
-		}
-		if (order) {
-			params.push(`order=${order}`);
-		}
-
-		if (params.length > 0) {
-			url += '?' + params.join('&');
-		}
-
-		return this.http.get<any>(url, { headers: this.defaultHeaders });
+		return this.http.get<ApiResponse<Agent[]>>(
+			`${this.apiUrl}/organization/${orgId}/agents`,
+			{ headers: this.defaultHeaders, params },
+		);
 	}
 
-	// Get single agent
-	getAgent(orgId: string, agentId: string): Observable<any> {
-		return this.http.get<any>(
-			`${this.apiUrl}/organization/${orgId}/image-generation/agents/${agentId}`,
+	getAgent(orgId: string, agentId: string): Observable<ApiResponse<Agent>> {
+		return this.http.get<ApiResponse<Agent>>(
+			`${this.apiUrl}/organization/${orgId}/agents/${agentId}`,
 			{ headers: this.defaultHeaders },
 		);
 	}
 
-	// Create agent
-	createAgent(orgId: string, dto: any): Observable<any> {
-		return this.http.post<any>(
-			`${this.apiUrl}/organization/${orgId}/image-generation/agents`,
+	createAgent(
+		orgId: string,
+		dto: AgentCreateDto,
+	): Observable<ApiResponse<Agent>> {
+		return this.http.post<ApiResponse<Agent>>(
+			`${this.apiUrl}/organization/${orgId}/agents`,
 			dto,
 			{ headers: this.defaultHeaders },
 		);
 	}
 
-	// Update agent
-	updateAgent(orgId: string, agentId: string, dto: any): Observable<any> {
-		return this.http.put<any>(
-			`${this.apiUrl}/organization/${orgId}/image-generation/agents/${agentId}`,
+	updateAgent(
+		orgId: string,
+		agentId: string,
+		dto: AgentUpdateDto,
+	): Observable<ApiResponse<Agent>> {
+		return this.http.put<ApiResponse<Agent>>(
+			`${this.apiUrl}/organization/${orgId}/agents/${agentId}`,
 			dto,
 			{ headers: this.defaultHeaders },
 		);
 	}
 
-	// Delete agent
-	deleteAgent(orgId: string, agentId: string): Observable<any> {
-		return this.http.delete<any>(
-			`${this.apiUrl}/organization/${orgId}/image-generation/agents/${agentId}`,
+	deleteAgent(orgId: string, agentId: string): Observable<ApiResponse<void>> {
+		return this.http.delete<ApiResponse<void>>(
+			`${this.apiUrl}/organization/${orgId}/agents/${agentId}`,
 			{ headers: this.defaultHeaders },
 		);
 	}
 
-	// Get documents for an agent (SEPARATE endpoint, not included in agent response)
-	getDocuments(orgId: string, agentId: string): Observable<any> {
-		return this.http.get<any>(
-			`${this.apiUrl}/organization/${orgId}/image-generation/agents/${agentId}/documents`,
+	getDocuments(
+		orgId: string,
+		agentId: string,
+	): Observable<ApiResponse<AgentDocument[]>> {
+		return this.http.get<ApiResponse<AgentDocument[]>>(
+			`${this.apiUrl}/organization/${orgId}/agents/${agentId}/documents`,
 			{ headers: this.defaultHeaders },
 		);
 	}
 
-	// Upload document (multipart form data)
 	uploadDocument(
 		orgId: string,
 		agentId: string,
 		file: File,
-	): Observable<any> {
+	): Observable<ApiResponse<AgentDocument>> {
 		const formData = new FormData();
 		formData.append('file', file);
-		// Don't set Content-Type header - let browser set it with boundary for multipart
-		return this.http.post<any>(
-			`${this.apiUrl}/organization/${orgId}/image-generation/agents/${agentId}/documents`,
+		return this.http.post<ApiResponse<AgentDocument>>(
+			`${this.apiUrl}/organization/${orgId}/agents/${agentId}/documents`,
 			formData,
 		);
 	}
 
-	// Delete document
 	deleteDocument(
 		orgId: string,
 		agentId: string,
 		documentId: string,
-	): Observable<any> {
-		return this.http.delete<any>(
-			`${this.apiUrl}/organization/${orgId}/image-generation/agents/${agentId}/documents/${documentId}`,
+	): Observable<ApiResponse<void>> {
+		return this.http.delete<ApiResponse<void>>(
+			`${this.apiUrl}/organization/${orgId}/agents/${agentId}/documents/${documentId}`,
 			{ headers: this.defaultHeaders },
 		);
 	}
 
-	// Upload image for compliance evaluation
-	uploadComplianceImage(orgId: string, file: File): Observable<any> {
+	uploadComplianceImage(
+		orgId: string,
+		file: File,
+	): Observable<ApiResponse<UploadResponse>> {
 		const formData = new FormData();
 		formData.append('file', file);
-		return this.http.post<any>(
+		return this.http.post<ApiResponse<UploadResponse>>(
 			`${this.apiUrl}/organization/${orgId}/image-generation/requests/images/upload`,
 			formData,
 		);
 	}
 
-	// Evaluate images with judges
 	evaluateImage(
 		orgId: string,
 		body: {
@@ -130,8 +140,8 @@ export class AgentService {
 			judgeIds: string[];
 			promptUsed?: string;
 		},
-	): Observable<any> {
-		return this.http.post<any>(
+	): Observable<ApiResponse<EvaluationResponse>> {
+		return this.http.post<ApiResponse<EvaluationResponse>>(
 			`${this.apiUrl}/organization/${orgId}/image-generation/evaluate`,
 			body,
 			{ headers: this.defaultHeaders },
