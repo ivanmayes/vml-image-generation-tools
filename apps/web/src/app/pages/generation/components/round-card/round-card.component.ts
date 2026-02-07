@@ -12,6 +12,7 @@ import {
 	GeneratedImage,
 } from '../../../../shared/models/generation-request.model';
 import { PrimeNgModule } from '../../../../shared/primeng.module';
+import { SCORE_THRESHOLDS } from '../../../../shared/utils/score.utils';
 import { JudgeFeedbackComponent } from '../judge-feedback/judge-feedback.component';
 
 @Component({
@@ -43,20 +44,14 @@ export class RoundCardComponent implements OnInit {
 	}
 
 	getScoreColor(score: number): string {
-		if (score >= 80) return 'var(--p-green-500)';
-		if (score >= 60) return 'var(--p-yellow-500)';
+		if (score >= SCORE_THRESHOLDS.PASS) return 'var(--p-green-500)';
+		if (score >= SCORE_THRESHOLDS.WARN) return 'var(--p-yellow-500)';
 		return 'var(--p-red-500)';
 	}
 
-	getScoreSeverity(score: number): 'success' | 'warn' | 'danger' | 'info' {
-		if (score >= 80) return 'success';
-		if (score >= 60) return 'warn';
-		return 'danger';
-	}
-
 	getScoreClass(score: number): string {
-		if (score >= 80) return 'score-chip--success';
-		if (score >= 60) return 'score-chip--warn';
+		if (score >= SCORE_THRESHOLDS.PASS) return 'score-chip--success';
+		if (score >= SCORE_THRESHOLDS.WARN) return 'score-chip--warn';
 		return 'score-chip--danger';
 	}
 

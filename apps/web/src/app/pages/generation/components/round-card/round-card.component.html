@@ -1,6 +1,12 @@
 <div class="round-card" [class.round-card--latest]="isLatest()">
 	<!-- Header (always visible, clickable to expand/collapse) -->
-	<div class="round-card__header" (click)="toggleExpanded()">
+	<div
+		class="round-card__header"
+		(click)="toggleExpanded()"
+		(keydown.enter)="toggleExpanded()"
+		tabindex="0"
+		role="button"
+	>
 		<div class="round-card__header-left">
 			<span class="round-card__number">
 				{{ iteration().iterationNumber }}
@@ -8,6 +14,11 @@
 			<span class="round-card__title">
 				Iteration {{ iteration().iterationNumber }}
 			</span>
+			@if (iteration().mode === "edit") {
+				<p-tag value="Edit" severity="info" class="text-xs" />
+			} @else if (iteration().mode === "regeneration") {
+				<p-tag value="Regen" severity="secondary" class="text-xs" />
+			}
 		</div>
 		<div class="round-card__header-right">
 			<span
@@ -85,7 +96,8 @@
 				<div class="round-card__top-issue">
 					<div class="flex align-items-center gap-2 mb-1">
 						<i
-							class="pi pi-exclamation-triangle text-orange-500"
+							class="pi pi-exclamation-triangle"
+							style="color: var(--p-orange-500)"
 						></i>
 						<span class="text-sm font-semibold">Top Issue</span>
 						<p-tag

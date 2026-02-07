@@ -2,6 +2,7 @@
 
 .continuation-editor {
 	@include surface-card-elevated;
+
 	border-left: 4px solid var(--p-primary-500);
 	overflow: hidden;
 
@@ -46,7 +47,7 @@
 
 	&__body {
 		padding: 0 20px 20px;
-		animation: fadeSlideIn 0.25s ease both;
+		animation: fade-slide-in 0.25s ease both;
 	}
 
 	&__actions {

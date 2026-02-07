@@ -16,6 +16,7 @@ import type { RequestCreateDto } from '@api/image-generation/generation-request/
 import { AgentService } from '../../../shared/services/agent.service';
 import { GenerationRequestService } from '../../../shared/services/generation-request.service';
 import { Agent } from '../../../shared/models/agent.model';
+import { GenerationMode } from '../../../shared/models/generation-request.model';
 import { environment } from '../../../../environments/environment';
 import { PrimeNgModule } from '../../../shared/primeng.module';
 
@@ -37,6 +38,14 @@ export class GenerationNewPage implements OnInit, OnDestroy {
 	selectedJudgeIds: string[] = [];
 	maxIterations = 10;
 	threshold = 75;
+
+	// Generation mode
+	generationMode: GenerationMode = 'regeneration';
+	generationModeOptions = [
+		{ label: 'Regenerate', value: 'regeneration' as GenerationMode },
+		{ label: 'Edit', value: 'edit' as GenerationMode },
+		{ label: 'Mixed', value: 'mixed' as GenerationMode },
+	];
 
 	// Image settings
 	imagesPerGeneration = 3;
@@ -96,7 +105,7 @@ export class GenerationNewPage implements OnInit, OnDestroy {
 			.getAgents(this.organizationId)
 			.pipe(takeUntil(this.destroy$))
 			.subscribe({
-				next: (response: { data?: Agent[] }) => {
+				next: (response) => {
 					this.agents.set(response.data ?? []);
 					this.loadingAgents.set(false);
 				},
@@ -128,6 +137,8 @@ export class GenerationNewPage implements OnInit, OnDestroy {
 			judgeIds: this.selectedJudgeIds,
 			maxIterations: this.maxIterations,
 			threshold: this.threshold,
+			generationMode: this
+				.generationMode as RequestCreateDto['generationMode'],
 			imageParams: {
 				imagesPerGeneration: this.imagesPerGeneration,
 				aspectRatio: this.aspectRatio,
@@ -208,6 +219,36 @@ export class GenerationNewPage implements OnInit, OnDestroy {
 		this.referenceImageUrls = this.referenceImageUrls.filter(
 			(_, i) => i !== index,
 		);
+	}
+
+	/** Enforce iteration limits when mode changes */
+	onModeChange(): void {
+		const maxAllowed = this.getMaxIterationsForMode();
+		if (this.maxIterations > maxAllowed) {
+			this.maxIterations = maxAllowed;
+		}
+	}
+
+	getMaxIterationsForMode(): number {
+		switch (this.generationMode) {
+			case 'edit':
+				return 5;
+			case 'mixed':
+				return 20;
+			default:
+				return 50;
+		}
+	}
+
+	getModeDescription(): string {
+		switch (this.generationMode) {
+			case 'edit':
+				return 'Each iteration edits the previous best image with targeted fixes. Best for refining an existing result. Limited to 5 iterations to avoid quality degradation.';
+			case 'mixed':
+				return 'Automatically switches between regeneration and editing based on judge feedback. Regenerates when major issues are found, edits for moderate fixes.';
+			default:
+				return 'Each iteration generates a new image from an optimized prompt. Best for initial exploration.';
+		}
 	}
 
 	onBack(): void {

@@ -6,6 +6,7 @@
 				icon="pi pi-arrow-left"
 				[text]="true"
 				(onClick)="onBack()"
+				aria-label="Go back"
 			/>
 			<span class="text-caption">ITERATIVE IMAGE GENERATION</span>
 		</div>
@@ -20,7 +21,7 @@
 			<!-- Brief -->
 			<div class="field mb-4">
 				<label for="brief" class="block font-semibold mb-2">
-					Brief <span class="text-red-500">*</span>
+					Brief <span style="color: var(--p-red-500)">*</span>
 				</label>
 				<textarea
 					pTextarea
@@ -65,7 +66,10 @@
 
 			<!-- Images per Iteration -->
 			<div class="field mb-4">
-				<label class="block font-semibold mb-2"
+				tttt<!-- eslint-disable-next-line @angular-eslint/template/label-has-associated-control -->
+				<label
+					class="block font-semibold mb-2"
+					id="images-per-iter-label"
 					>Images per Iteration</label
 				>
 				<p-selectButton
@@ -73,6 +77,7 @@
 					[(ngModel)]="imagesPerGeneration"
 					optionLabel="label"
 					optionValue="value"
+					tttttaria-labelledby="images-per-iter-label"
 				/>
 				<small class="text-color-secondary">
 					Number of images generated each iteration (best one is
@@ -82,12 +87,16 @@
 
 			<!-- Aspect Ratio -->
 			<div class="field mb-4">
-				<label class="block font-semibold mb-2">Aspect Ratio</label>
+				tttt<!-- eslint-disable-next-line @angular-eslint/template/label-has-associated-control -->
+				<label class="block font-semibold mb-2" id="aspect-ratio-label"
+					>Aspect Ratio</label
+				>
 				<p-selectButton
 					[options]="aspectRatioOptions"
 					[(ngModel)]="aspectRatio"
 					optionLabel="label"
 					optionValue="value"
+					tttttaria-labelledby="aspect-ratio-label"
 				/>
 				<small class="text-color-secondary">
 					Output image dimensions ratio.
@@ -96,7 +105,8 @@
 
 			<!-- Reference Images -->
 			<div class="field">
-				<label class="block font-semibold mb-2">
+				tttt<!-- eslint-disable-next-line @angular-eslint/template/label-has-associated-control -->
+				<label class="block font-semibold mb-2" id="ref-images-label">
 					Reference Images
 					<span class="text-color-secondary font-normal text-xs"
 						>Optional</span
@@ -109,13 +119,16 @@
 					{
 					<div class="reference-thumb">
 						<img [src]="url" alt="Reference {{ i + 1 }}" />
-						<button
-							class="reference-thumb__remove"
-							(click)="removeReferenceImage(i)"
-							title="Remove"
-						>
-							<i class="pi pi-times"></i>
-						</button>
+						<p-button
+							icon="pi pi-times"
+							[rounded]="true"
+							[text]="true"
+							severity="secondary"
+							size="small"
+							styleClass="reference-thumb__remove"
+							(onClick)="removeReferenceImage(i)"
+							[attr.aria-label]="'Remove reference image ' + (i + 1)"
+						/>
 					</div>
 					}
 				</div>
@@ -133,7 +146,7 @@
 				} @if (uploadingReference()) {
 				<p-progressBar
 					mode="indeterminate"
-					[style]="{ height: '4px', marginTop: '8px' }"
+					[style]="{ height: '0.25rem', marginTop: '0.5rem' }"
 				/>
 				}
 				<small class="text-color-secondary">
@@ -147,10 +160,29 @@
 		<div class="new-card" style="animation-delay: 0.2s">
 			<h2 class="heading-section mt-0 mb-3">Configuration</h2>
 
+			<!-- Generation Mode -->
+			<div class="field mb-4">
+				tttt<!-- eslint-disable-next-line @angular-eslint/template/label-has-associated-control -->
+				<label class="block font-semibold mb-2" id="ref-images-label"
+					>Generation Mode</label
+				>
+				<p-selectButton
+					[options]="generationModeOptions"
+					[(ngModel)]="generationMode"
+					optionLabel="label"
+					optionValue="value"
+					(onChange)="onModeChange()"
+					tttttaria-labelledby="gen-mode-label"
+				/>
+				<small class="text-color-secondary">
+					{{ getModeDescription() }}
+				</small>
+			</div>
+
 			<!-- Judge Selection -->
 			<div class="field mb-4">
 				<label for="judges" class="block font-semibold mb-2">
-					Judges <span class="text-red-500">*</span>
+					Judges <span style="color: var(--p-red-500)">*</span>
 				</label>
 				@if (loadingAgents()) {
 				<p-skeleton width="100%" height="2.5rem" />
@@ -184,7 +216,7 @@
 						id="maxIterations"
 						[(ngModel)]="maxIterations"
 						[min]="1"
-						[max]="50"
+						[max]="getMaxIterationsForMode()"
 						[showButtons]="true"
 					/>
 				</div>

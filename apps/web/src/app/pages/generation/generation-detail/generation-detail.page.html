@@ -2,15 +2,9 @@
 	<!-- Loading skeleton -->
 	@if (loading()) {
 	<div class="detail-skeleton">
-		<div
-			class="skeleton-shimmer"
-			style="height: 80px; margin-bottom: 16px"
-		></div>
-		<div
-			class="skeleton-shimmer"
-			style="height: 120px; margin-bottom: 16px"
-		></div>
-		<div class="skeleton-shimmer" style="height: 200px"></div>
+		<p-skeleton width="100%" height="5rem" styleClass="mb-3" />
+		<p-skeleton width="100%" height="7.5rem" styleClass="mb-3" />
+		<p-skeleton width="100%" height="12.5rem" />
 	</div>
 	} @else if (request(); as req) {
 	<!-- Header -->
@@ -20,6 +14,7 @@
 				icon="pi pi-arrow-left"
 				[text]="true"
 				(onClick)="onBack()"
+				aria-label="Go back"
 			/>
 			<span class="text-caption">ITERATIVE IMAGE GENERATION</span>
 		</div>
@@ -193,6 +188,7 @@
 		<div class="mb-4">
 			<app-continuation-editor
 				[lastPrompt]="lastPrompt()"
+				[currentMode]="request()?.generationMode ?? 'regeneration'"
 				[submitting]="continuing()"
 				(continueRequest)="onContinue($event)"
 			/>

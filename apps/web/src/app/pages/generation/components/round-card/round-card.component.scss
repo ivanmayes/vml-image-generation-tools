@@ -2,14 +2,15 @@
 
 .round-card {
 	@include surface-card-elevated;
+
 	padding: 0;
 	transition: box-shadow 0.2s;
-	animation: fadeSlideIn 0.3s ease both;
+	animation: fade-slide-in 0.3s ease both;
 
 	&--latest {
 		box-shadow:
-			0px 1px 4px rgb(52 58 63 / 5%),
-			0px 4px 12px rgb(52 58 63 / 12%),
+			0 1px 4px rgb(52 58 63 / 5%),
+			0 4px 12px rgb(52 58 63 / 12%),
 			0 0 0 1px var(--p-primary-200);
 	}
 
@@ -155,7 +156,7 @@
 		height: 22px;
 		border-radius: 50%;
 		background: var(--p-primary-color);
-		color: white;
+		color: var(--p-primary-contrast-color);
 		display: flex;
 		align-items: center;
 		justify-content: center;
@@ -165,7 +166,7 @@
 	// Body
 	&__body {
 		padding: 0 20px 20px;
-		animation: fadeSlideIn 0.25s ease both;
+		animation: fade-slide-in 0.25s ease both;
 	}
 
 	// Prompt section
@@ -193,7 +194,7 @@
 		padding: 12px;
 		background: var(--p-surface-ground);
 		border-radius: 6px;
-		animation: fadeSlideIn 0.2s ease both;
+		animation: fade-slide-in 0.2s ease both;
 	}
 
 	// Top Issue
@@ -203,7 +204,7 @@
 		border-radius: 6px;
 		border-left: 3px solid var(--p-orange-500);
 		margin-bottom: 16px;
-		animation: fadeSlideIn 0.3s ease both;
+		animation: fade-slide-in 0.3s ease both;
 	}
 
 	// Evaluations

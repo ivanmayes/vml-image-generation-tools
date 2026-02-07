@@ -2,7 +2,7 @@
 
 .generation-list-page {
 	padding: 24px;
-	animation: fadeSlideIn 0.3s ease both;
+	animation: fade-slide-in 0.3s ease both;
 }
 
 // Header
@@ -54,6 +54,7 @@
 
 .gen-card {
 	@include surface-card-elevated;
+
 	cursor: pointer;
 	transition:
 		transform 0.2s ease,
@@ -77,8 +78,8 @@
 	&:hover {
 		transform: translateY(-2px);
 		box-shadow:
-			0px 2px 8px rgb(52 58 63 / 8%),
-			0px 8px 24px rgb(52 58 63 / 16%);
+			0 2px 8px rgb(52 58 63 / 8%),
+			0 8px 24px rgb(52 58 63 / 16%);
 
 		&::before {
 			opacity: 1;
@@ -184,7 +185,7 @@
 		top: 0;
 		z-index: 10;
 		backdrop-filter: blur(12px);
-		background: rgba(255, 255, 255, 0.85);
+		background: rgb(255 255 255 / 85%);
 		flex-direction: column;
 		align-items: stretch;
 		gap: 12px;

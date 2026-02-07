@@ -221,27 +221,6 @@ export class GenerationDetailPage
 			});
 	}
 
-	getStatusSeverity(
-		status: GenerationRequestStatus,
-	): 'success' | 'info' | 'warn' | 'danger' | 'secondary' | 'contrast' {
-		switch (status) {
-			case GenerationRequestStatus.COMPLETED:
-				return 'success';
-			case GenerationRequestStatus.OPTIMIZING:
-			case GenerationRequestStatus.GENERATING:
-			case GenerationRequestStatus.EVALUATING:
-				return 'info';
-			case GenerationRequestStatus.PENDING:
-				return 'warn';
-			case GenerationRequestStatus.FAILED:
-				return 'danger';
-			case GenerationRequestStatus.CANCELLED:
-				return 'secondary';
-			default:
-				return 'info';
-		}
-	}
-
 	private connectToStream(): void {
 		const token = this.sessionQuery.getToken() ?? '';
 		this.eventsService

@@ -22,7 +22,10 @@
 	@if (evaluation().topIssue) {
 		<div class="judge-feedback__top-issue">
 			<div class="flex align-items-center gap-2 mb-1">
-				<i class="pi pi-exclamation-triangle text-orange-500"></i>
+				<i
+					class="pi pi-exclamation-triangle"
+					style="color: var(--p-orange-500)"
+				></i>
 				<span class="text-sm font-semibold">Top Issue</span>
 				<p-tag
 					[value]="evaluation().topIssue!.severity"
@@ -88,9 +91,12 @@
 						<i
 							class="pi text-sm"
 							[class.pi-check-circle]="item.passed"
-							[class.text-green-500]="item.passed"
 							[class.pi-times-circle]="!item.passed"
-							[class.text-red-500]="!item.passed"
+							[style.color]="
+								item.passed
+									? 'var(--p-green-500)'
+									: 'var(--p-red-500)'
+							"
 						>
 						</i>
 						<div>

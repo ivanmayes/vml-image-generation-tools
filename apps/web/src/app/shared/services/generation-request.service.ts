@@ -163,8 +163,8 @@ export class GenerationRequestService {
 	 */
 	getOrganizationImages(
 		orgId: string,
-		limit: number = 50,
-		offset: number = 0,
+		limit = 50,
+		offset = 0,
 	): Observable<ApiResponse<GeneratedImage[]>> {
 		return this.http.get<ApiResponse<GeneratedImage[]>>(
 			`${this.basePath(orgId)}/images?limit=${limit}&offset=${offset}`,

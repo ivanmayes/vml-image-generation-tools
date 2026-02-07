@@ -22,6 +22,8 @@ export enum CompletionReason {
 	ERROR = 'ERROR',
 }
 
+export type GenerationMode = 'regeneration' | 'edit' | 'mixed';
+
 export interface ImageParams {
 	aspectRatio?: string;
 	quality?: string;
@@ -63,6 +65,9 @@ export interface IterationSnapshot {
 	aggregateScore: number;
 	evaluations: AgentEvaluationSnapshot[];
 	createdAt: string;
+	mode?: 'regeneration' | 'edit';
+	editSourceImageId?: string;
+	consecutiveEditCount?: number;
 }
 
 // Matches toPublic() response
@@ -80,6 +85,7 @@ export interface GenerationRequestPublic {
 	finalImageUrl?: string;
 	bestScore?: number;
 	completionReason?: CompletionReason;
+	generationMode?: GenerationMode;
 	costs: RequestCosts;
 	createdAt: string;
 	completedAt?: string;

@@ -2,7 +2,7 @@
 	position: relative;
 	border-radius: 8px;
 	overflow: hidden;
-	animation: fadeSlideIn 0.4s ease 0.1s both;
+	animation: fade-slide-in 0.4s ease 0.1s both;
 
 	&__accent {
 		position: absolute;
@@ -56,18 +56,23 @@
 		.completion-banner__accent {
 			background: var(--p-green-500);
 		}
+
 		.completion-banner__icon-block {
 			background: var(--p-green-100);
+
 			i {
 				color: var(--p-green-600);
 			}
 		}
+
 		.completion-banner__score-number {
 			color: var(--p-green-700);
 		}
+
 		h3 {
 			color: var(--p-green-700);
 		}
+
 		p {
 			color: var(--p-green-600);
 		}
@@ -79,18 +84,23 @@
 		.completion-banner__accent {
 			background: var(--p-red-500);
 		}
+
 		.completion-banner__icon-block {
 			background: var(--p-red-100);
+
 			i {
 				color: var(--p-red-600);
 			}
 		}
+
 		.completion-banner__score-number {
 			color: var(--p-red-700);
 		}
+
 		h3 {
 			color: var(--p-red-700);
 		}
+
 		p {
 			color: var(--p-red-600);
 		}
@@ -102,18 +112,23 @@
 		.completion-banner__accent {
 			background: var(--p-yellow-500);
 		}
+
 		.completion-banner__icon-block {
 			background: var(--p-yellow-100);
+
 			i {
 				color: var(--p-yellow-600);
 			}
 		}
+
 		.completion-banner__score-number {
 			color: var(--p-yellow-700);
 		}
+
 		h3 {
 			color: var(--p-yellow-700);
 		}
+
 		p {
 			color: var(--p-yellow-600);
 		}
@@ -125,18 +140,23 @@
 		.completion-banner__accent {
 			background: var(--p-blue-500);
 		}
+
 		.completion-banner__icon-block {
 			background: var(--p-blue-100);
+
 			i {
 				color: var(--p-blue-600);
 			}
 		}
+
 		.completion-banner__score-number {
 			color: var(--p-blue-700);
 		}
+
 		h3 {
 			color: var(--p-blue-700);
 		}
+
 		p {
 			color: var(--p-blue-600);
 		}

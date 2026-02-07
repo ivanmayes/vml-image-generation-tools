@@ -1,5 +1,11 @@
 <div class="continuation-editor">
-	<div class="continuation-editor__header" (click)="toggle()">
+	<div
+		class="continuation-editor__header"
+		(click)="toggle()"
+		(keydown.enter)="toggle()"
+		tabindex="0"
+		role="button"
+	>
 		<div class="continuation-editor__header-left">
 			<div class="continuation-editor__icon-block">
 				<i class="pi pi-refresh"></i>
@@ -18,10 +24,13 @@
 		<div class="continuation-editor__body">
 			<!-- Prompt Override -->
 			<div class="field mb-3">
-				<label class="block text-sm font-semibold mb-2"
+				<label
+					class="block text-sm font-semibold mb-2"
+					for="continuation-prompt"
 					>Prompt (editable)</label
 				>
 				<textarea
+					id="continuation-prompt"
 					pTextarea
 					[(ngModel)]="promptOverride"
 					rows="4"
@@ -34,17 +43,44 @@
 				>
 			</div>
 
+			<!-- Generation Mode -->
+			<div class="field mb-3">
+				tttt<!-- eslint-disable-next-line @angular-eslint/template/label-has-associated-control -->
+				<label
+					class="block text-sm font-semibold mb-2"
+					id="cont-mode-label"
+					>Generation Mode</label
+				>
+				<p-selectButton
+					[options]="generationModeOptions"
+					[(ngModel)]="generationMode"
+					optionLabel="label"
+					optionValue="value"
+					(onChange)="onModeChange()"
+					tttttaria-labelledby="cont-mode-label"
+				/>
+			</div>
+
 			<!-- Additional Iterations -->
 			<div class="field mb-3">
-				<label class="block text-sm font-semibold mb-2"
+				<label
+					class="block text-sm font-semibold mb-2"
+					for="cont-iterations"
 					>Additional Iterations</label
 				>
 				<p-inputNumber
+					tttttinputId="cont-iterations"
 					[(ngModel)]="additionalIterations"
 					[min]="1"
-					[max]="20"
+					[max]="getMaxIterationsForMode()"
 					[showButtons]="true"
 				/>
+				@if (generationMode === "edit") {
+					<small class="text-color-secondary"
+						>Edit mode limited to 5 iterations to prevent quality
+						degradation.</small
+					>
+				}
 			</div>
 
 			<!-- Actions -->
