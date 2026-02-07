@@ -1,0 +1,236 @@
+<div class="image-evaluator">
+	<!-- Judge Selection Card -->
+	@if (showJudgePicker && !judgeId && !judgeIds?.length) {
+		<div class="evaluator-card" style="animation-delay: 0.05s">
+			<h2 class="heading-section mt-0 mb-3">Judges</h2>
+
+			@if (loadingJudges()) {
+				<p-skeleton width="100%" height="2.5rem" />
+			} @else if (loadJudgesError()) {
+				<p-message severity="error">
+					Failed to load judges.
+					<button
+						pButton
+						label="Retry"
+						icon="pi pi-refresh"
+						class="p-button-text p-button-sm ml-2"
+						(click)="retryLoadJudges()"
+						type="button"
+					></button>
+				</p-message>
+			} @else if (availableJudges().length === 0) {
+				<p-message severity="warn"
+					>No judges available. Create judges first in the Judges
+					section.</p-message
+				>
+			} @else {
+				<p-multiselect
+					[(ngModel)]="selectedJudgeIds"
+					[options]="availableJudges()"
+					optionLabel="name"
+					optionValue="id"
+					placeholder="Select judges to evaluate images"
+					display="chip"
+					[showClear]="true"
+					[appendTo]="'body'"
+					class="w-full"
+				></p-multiselect>
+			}
+		</div>
+	}
+
+	<!-- Image Card -->
+	<div class="evaluator-card" style="animation-delay: 0.1s">
+		<h2 class="heading-section mt-0 mb-3">Image</h2>
+
+		<!-- Image Source Selector -->
+		@if (showImageSourceOptions) {
+			<div class="field mb-4">
+				<p-selectButton
+					[(ngModel)]="selectedImageSource"
+					[options]="imageSourceOptions"
+					optionLabel="label"
+					optionValue="value"
+				></p-selectButton>
+			</div>
+		}
+
+		<!-- URL Input -->
+		@if (selectedImageSource === "url") {
+			<div class="field">
+				<label for="evalImageUrl" class="block font-semibold mb-2">
+					Image URL
+				</label>
+				<input
+					id="evalImageUrl"
+					pInputText
+					[(ngModel)]="imageUrl"
+					placeholder="https://..."
+					class="w-full"
+				/>
+			</div>
+
+			<!-- URL Preview -->
+			@if (showUrlPreview) {
+				<div class="image-preview-container mt-3">
+					<div class="image-preview-thumb">
+						<img [src]="imageUrl" alt="URL preview" />
+						<button
+							class="image-preview-thumb__remove"
+							(click)="clearImage()"
+							title="Clear"
+							type="button"
+						>
+							<i class="pi pi-times"></i>
+						</button>
+					</div>
+				</div>
+			}
+		}
+
+		<!-- Upload -->
+		@if (selectedImageSource === "upload") {
+			<div class="field">
+				@if (!uploadedImageUrl()) {
+					<p-fileUpload
+						mode="basic"
+						[auto]="true"
+						[customUpload]="true"
+						(uploadHandler)="onUpload($event)"
+						chooseLabel="Upload Image"
+						chooseIcon="pi pi-upload"
+						accept="image/jpeg,image/png,image/webp"
+						[maxFileSize]="10000000"
+						[disabled]="uploading()"
+					></p-fileUpload>
+				}
+				@if (uploading()) {
+					<p-progressBar
+						mode="indeterminate"
+						[style]="{ height: '4px', marginTop: '8px' }"
+					/>
+				}
+			</div>
+
+			<!-- Upload Preview -->
+			@if (uploadedImageUrl()) {
+				<div class="image-preview-container mt-3">
+					<div class="image-preview-thumb">
+						<img [src]="uploadedImageUrl()!" alt="Uploaded image" />
+						<button
+							class="image-preview-thumb__remove"
+							(click)="clearImage()"
+							title="Remove"
+							type="button"
+						>
+							<i class="pi pi-times"></i>
+						</button>
+					</div>
+				</div>
+			}
+		}
+
+		<!-- Browse -->
+		@if (selectedImageSource === "browse") {
+			<div class="field">
+				@if (!uploadedImageUrl()) {
+					<button
+						pButton
+						label="Browse Generated Images"
+						icon="pi pi-images"
+						class="p-button-outlined"
+						(click)="imagePickerVisible = true"
+						type="button"
+					></button>
+				}
+			</div>
+
+			<!-- Browse Preview -->
+			@if (uploadedImageUrl()) {
+				<div class="image-preview-container mt-3">
+					<div class="image-preview-thumb">
+						<img [src]="uploadedImageUrl()!" alt="Selected image" />
+						<button
+							class="image-preview-thumb__remove"
+							(click)="clearImage()"
+							title="Remove"
+							type="button"
+						>
+							<i class="pi pi-times"></i>
+						</button>
+					</div>
+				</div>
+			}
+		}
+	</div>
+
+	<!-- Run Button -->
+	<div class="evaluator-submit">
+		<p-button
+			label="Run Evaluation"
+			icon="pi pi-play"
+			(onClick)="runEvaluation()"
+			[disabled]="!canRun"
+			[loading]="evaluating()"
+		/>
+	</div>
+
+	<!-- Results -->
+	@if (evaluationResults().length > 0) {
+		<div class="evaluator-card" style="animation-delay: 0.15s">
+			<!-- Aggregate score for multi-judge -->
+			@if (aggregateScore() !== null) {
+				<div class="aggregate-header">
+					<div class="score-display">
+						<span class="score-value">{{ aggregateScore() }}</span>
+						<p-tag
+							[value]="
+								aggregateScore()! >= 80
+									? 'Good'
+									: aggregateScore()! >= 60
+										? 'Fair'
+										: 'Poor'
+							"
+							[severity]="getScoreSeverity(aggregateScore()!)"
+						></p-tag>
+					</div>
+					<span class="aggregate-label">Aggregate Score</span>
+				</div>
+
+				<p-accordion [multiple]="true">
+					@for (result of evaluationResults(); track result.agentId) {
+						<p-accordionpanel>
+							<p-accordionheader>
+								<span>{{ result.agentName }}</span>
+								<p-tag
+									[value]="result.overallScore + ''"
+									[severity]="
+										getScoreSeverity(result.overallScore)
+									"
+									class="ml-2"
+								></p-tag>
+							</p-accordionheader>
+							<p-accordioncontent>
+								<app-evaluation-results
+									[result]="result"
+								></app-evaluation-results>
+							</p-accordioncontent>
+						</p-accordionpanel>
+					}
+				</p-accordion>
+			} @else if (evaluationResults().length === 1) {
+				<!-- Single judge result -->
+				<app-evaluation-results
+					[result]="evaluationResults()[0]"
+				></app-evaluation-results>
+			}
+		</div>
+	}
+</div>
+
+<!-- Image Picker Dialog -->
+<app-image-picker-dialog
+	[(visible)]="imagePickerVisible"
+	[orgId]="organizationId"
+	(imageSelected)="onImagePicked($event)"
+></app-image-picker-dialog>

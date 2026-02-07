@@ -1,0 +1,62 @@
+<p-dialog
+	header="Browse Generated Images"
+	[(visible)]="visible"
+	(visibleChange)="visibleChange.emit($event)"
+	[modal]="true"
+	[style]="{ width: '800px', maxHeight: '80vh' }"
+	[closable]="true"
+>
+	@if (loading()) {
+		<div class="loading-container">
+			<p-progressSpinner
+				[style]="{ width: '40px', height: '40px' }"
+			></p-progressSpinner>
+		</div>
+	} @else if (images().length === 0) {
+		<p-message
+			severity="info"
+			text="No generated images found for this organization."
+		></p-message>
+	} @else {
+		<div class="image-grid">
+			@for (image of images(); track image.id) {
+				<div
+					class="image-card"
+					[class.selected]="selectedImage()?.id === image.id"
+					(click)="selectImage(image)"
+				>
+					<div class="image-thumbnail">
+						<img [src]="image.s3Url" [alt]="'Generated image'" />
+					</div>
+					<div class="image-info">
+						<span class="iteration-badge"
+							>Iter {{ image.iterationNumber }}</span
+						>
+						<span class="image-date">{{
+							formatDate(image.createdAt)
+						}}</span>
+					</div>
+					<div class="image-prompt">
+						{{ truncatePrompt(image.promptUsed) }}
+					</div>
+				</div>
+			}
+		</div>
+	}
+
+	<ng-template pTemplate="footer">
+		<button
+			pButton
+			label="Cancel"
+			class="p-button-text"
+			(click)="close()"
+		></button>
+		<button
+			pButton
+			label="Use Image"
+			icon="pi pi-check"
+			(click)="confirmSelection()"
+			[disabled]="!selectedImage()"
+		></button>
+	</ng-template>
+</p-dialog>

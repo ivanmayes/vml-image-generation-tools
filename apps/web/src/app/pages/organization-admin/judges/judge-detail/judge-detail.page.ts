@@ -17,13 +17,10 @@ import { MessageService } from 'primeng/api';
 import { ConfirmDialogModule } from 'primeng/confirmdialog';
 
 import { AgentService } from '../../../../shared/services/agent.service';
-import {
-	Agent,
-	AgentDocument,
-	EvaluationResult,
-} from '../../../../shared/models/agent.model';
+import { Agent, AgentDocument } from '../../../../shared/models/agent.model';
 import { environment } from '../../../../../environments/environment';
 import { PrimeNgModule } from '../../../../shared/primeng.module';
+import { ImageEvaluatorComponent } from '../../../../shared/components/image-evaluator/image-evaluator.component';
 
 @Component({
 	selector: 'app-judge-detail',
@@ -36,6 +33,7 @@ import { PrimeNgModule } from '../../../../shared/primeng.module';
 		PrimeNgModule,
 		ReactiveFormsModule,
 		ConfirmDialogModule,
+		ImageEvaluatorComponent,
 	],
 })
 export class JudgeDetailPage implements OnInit {
@@ -46,11 +44,6 @@ export class JudgeDetailPage implements OnInit {
 	documents = signal<AgentDocument[]>([]);
 	loadingDocuments = signal(false);
 	uploadingDocument = signal(false);
-	evaluating = signal(false);
-	evaluationResult = signal<EvaluationResult | null>(null);
-
-	testBrief = '';
-	testImageUrl = '';
 
 	form = new FormGroup({
 		name: new FormControl('', {
@@ -277,73 +270,6 @@ export class JudgeDetailPage implements OnInit {
 					});
 				},
 			});
-	}
-
-	runEvaluation(): void {
-		if (!this.testBrief || !this.testImageUrl || !this.agent()) {
-			return;
-		}
-
-		this.evaluating.set(true);
-		this.evaluationResult.set(null);
-
-		this.agentService
-			.evaluateImage(this.organizationId, {
-				brief: this.testBrief,
-				imageUrls: [this.testImageUrl],
-				judgeIds: [this.agent()!.id],
-			})
-			.subscribe({
-				next: (response) => {
-					this.evaluationResult.set(
-						response.data.winner.evaluations[0],
-					);
-					this.evaluating.set(false);
-				},
-				error: (error) => {
-					console.error('Error running evaluation:', error);
-					this.messageService.add({
-						severity: 'error',
-						summary: 'Error',
-						detail: 'Failed to run evaluation',
-						life: 3000,
-					});
-					this.evaluating.set(false);
-				},
-			});
-	}
-
-	getChecklistEntries(): [string, { passed: boolean; note?: string }][] {
-		const result = this.evaluationResult();
-		if (!result?.checklist) return [];
-		return Object.entries(result.checklist);
-	}
-
-	getCategoryScoreEntries(): [string, number][] {
-		const result = this.evaluationResult();
-		if (!result?.categoryScores) return [];
-		return Object.entries(result.categoryScores);
-	}
-
-	getScoreSeverity(score: number): 'success' | 'warn' | 'danger' {
-		if (score >= 80) return 'success';
-		if (score >= 60) return 'warn';
-		return 'danger';
-	}
-
-	getSeverityColor(
-		severity: string,
-	): 'danger' | 'warn' | 'info' | 'secondary' {
-		switch (severity) {
-			case 'critical':
-				return 'danger';
-			case 'major':
-				return 'warn';
-			case 'moderate':
-				return 'info';
-			default:
-				return 'secondary';
-		}
 	}
 
 	formatDate(dateString: string): string {
