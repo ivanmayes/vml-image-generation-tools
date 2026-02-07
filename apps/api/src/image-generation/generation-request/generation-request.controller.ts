@@ -6,6 +6,8 @@ import {
 	Body,
 	Param,
 	UseGuards,
+	UseInterceptors,
+	UploadedFile,
 	HttpException,
 	HttpStatus,
 	Req,
@@ -13,6 +15,7 @@ import {
 	Sse,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 
@@ -79,11 +82,102 @@ export class GenerationRequestController {
 			spaceId,
 		);
 
+		// Batch-fetch final image URLs for card thumbnails
+		const finalImageIds = requests
+			.map((r) => r.finalImageId)
+			.filter((id): id is string => !!id);
+		const images = await this.requestService.getImagesByIds(finalImageIds);
+		const imageUrlMap = new Map(images.map((img) => [img.id, img.s3Url]));
+
 		return new ResponseEnvelope(
 			ResponseStatus.Success,
 			undefined,
-			requests.map((r) => new GenerationRequest(r).toPublic()),
+			requests.map((r) => {
+				const entity = new GenerationRequest(r);
+				return {
+					...entity.toPublic(),
+					finalImageUrl: r.finalImageId
+						? imageUrlMap.get(r.finalImageId)
+						: undefined,
+					bestScore: entity.getBestScore() || undefined,
+				};
+			}),
 		);
+	}
+
+	@Get('images')
+	@Roles(UserRole.SuperAdmin, UserRole.Admin)
+	@UseGuards(AuthGuard(), RolesGuard, HasOrganizationAccessGuard)
+	public async getOrganizationImages(
+		@Param('orgId') orgId: string,
+		@Query('limit') limit?: string,
+		@Query('offset') offset?: string,
+	) {
+		const parsedLimit = limit ? parseInt(limit, 10) : 50;
+		const parsedOffset = offset ? parseInt(offset, 10) : 0;
+		const safeLimit = Number.isNaN(parsedLimit)
+			? 50
+			: Math.min(parsedLimit, 100);
+		const safeOffset = Number.isNaN(parsedOffset)
+			? 0
+			: Math.max(parsedOffset, 0);
+
+		const images = await this.requestService.findImagesByOrganization(
+			orgId,
+			safeLimit,
+			safeOffset,
+		);
+
+		return new ResponseEnvelope(
+			ResponseStatus.Success,
+			undefined,
+			images.map((img) => new GeneratedImage(img).toPublic()),
+		);
+	}
+
+	@Post('images/upload')
+	@Roles(UserRole.SuperAdmin, UserRole.Admin)
+	@UseGuards(AuthGuard(), RolesGuard, HasOrganizationAccessGuard)
+	@UseInterceptors(FileInterceptor('file'))
+	public async uploadComplianceImage(
+		@Param('orgId') orgId: string,
+		@UploadedFile() file: Express.Multer.File,
+	) {
+		if (!file) {
+			throw new HttpException(
+				new ResponseEnvelope(
+					ResponseStatus.Failure,
+					'No file provided.',
+				),
+				HttpStatus.BAD_REQUEST,
+			);
+		}
+
+		const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp'];
+		if (!allowedMimeTypes.includes(file.mimetype)) {
+			throw new HttpException(
+				new ResponseEnvelope(
+					ResponseStatus.Failure,
+					'Invalid file type. Accepted: JPEG, PNG, WebP.',
+				),
+				HttpStatus.BAD_REQUEST,
+			);
+		}
+
+		const extMap: Record<string, string> = {
+			'image/jpeg': 'jpg',
+			'image/png': 'png',
+			'image/webp': 'webp',
+		};
+
+		const url = await this.requestService.uploadComplianceImage(
+			orgId,
+			file.buffer,
+			file.mimetype,
+			extMap[file.mimetype],
+		);
+
+		return new ResponseEnvelope(ResponseStatus.Success, undefined, { url });
 	}
 
 	@Get(':id')

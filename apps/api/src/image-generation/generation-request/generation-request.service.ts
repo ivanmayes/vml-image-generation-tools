@@ -1,6 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, FindOneOptions, FindManyOptions, In } from 'typeorm';
+import * as AWS from 'aws-sdk';
+import { v4 as uuid } from 'uuid';
 
 import {
 	GenerationRequest,
@@ -13,12 +15,20 @@ import {
 
 @Injectable()
 export class GenerationRequestService {
+	private readonly s3: AWS.S3;
+
 	constructor(
 		@InjectRepository(GenerationRequest)
 		private readonly requestRepository: Repository<GenerationRequest>,
 		@InjectRepository(GeneratedImage)
 		private readonly imageRepository: Repository<GeneratedImage>,
-	) {}
+	) {
+		this.s3 = new AWS.S3({
+			accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+			secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+			region: process.env.AWS_REGION || 'us-east-1',
+		});
+	}
 
 	public async find(options: FindManyOptions<GenerationRequest>) {
 		return this.requestRepository.find(options);
@@ -206,6 +216,39 @@ export class GenerationRequestService {
 		});
 	}
 
+	/**
+	 * Find images across all requests for an organization, ordered by newest first
+	 */
+	public async findImagesByOrganization(
+		organizationId: string,
+		limit: number = 50,
+		offset: number = 0,
+	) {
+		return this.imageRepository
+			.createQueryBuilder('image')
+			.innerJoin('image.request', 'request')
+			.where('request.organizationId = :organizationId', {
+				organizationId,
+			})
+			.orderBy('image.createdAt', 'DESC')
+			.take(limit)
+			.skip(offset)
+			.getMany();
+	}
+
+	/**
+	 * Batch-fetch images by IDs, returning only id and s3Url
+	 */
+	public async getImagesByIds(
+		ids: string[],
+	): Promise<Pick<GeneratedImage, 'id' | 's3Url'>[]> {
+		if (!ids.length) return [];
+		return this.imageRepository.find({
+			where: { id: In(ids) },
+			select: ['id', 's3Url'],
+		});
+	}
+
 	public async getActiveRequests() {
 		return this.requestRepository.find({
 			where: {
@@ -272,5 +315,30 @@ export class GenerationRequestService {
 
 		request.negativePrompts = negativePrompts;
 		return this.requestRepository.save(request);
+	}
+
+	/**
+	 * Upload an image to S3 for compliance evaluation (not tied to a generation request)
+	 */
+	public async uploadComplianceImage(
+		organizationId: string,
+		buffer: Buffer,
+		mimeType: string,
+		ext: string,
+	): Promise<string> {
+		const id = uuid();
+		const s3Key = `compliance-images/${organizationId}/${id}.${ext}`;
+
+		await this.s3
+			.putObject({
+				Bucket: process.env.AWS_S3_BUCKET!,
+				Key: s3Key,
+				Body: buffer,
+				ContentType: mimeType,
+				ACL: 'public-read',
+			})
+			.promise();
+
+		return `https://${process.env.AWS_S3_BUCKET}.s3.amazonaws.com/${s3Key}`;
 	}
 }
