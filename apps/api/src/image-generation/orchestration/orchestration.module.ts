@@ -2,7 +2,7 @@ import { Module, forwardRef } from '@nestjs/common';
 import { PassportModule } from '@nestjs/passport';
 
 import { AIModule } from '../../ai/ai.module';
-import { AgentModule } from '../agent/agent.module';
+import { AgentModule } from '../../agent/agent.module';
 import { GenerationRequestModule } from '../generation-request/generation-request.module';
 import { PromptOptimizerModule } from '../prompt-optimizer/prompt-optimizer.module';
 import { DocumentProcessorModule } from '../document-processor/document-processor.module';

@@ -9,6 +9,7 @@ import {
 	UseGuards,
 	HttpException,
 	HttpStatus,
+	Logger,
 	Req,
 	Query,
 	UploadedFile,
@@ -16,23 +17,33 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { FileInterceptor } from '@nestjs/platform-express';
+import * as AWS from 'aws-sdk';
 
-import { Roles } from '../../user/auth/roles.decorator';
-import { RolesGuard } from '../../user/auth/roles.guard';
-import { HasOrganizationAccessGuard } from '../../organization/guards/has-organization-access.guard';
-import { UserRole } from '../../user/user-role.enum';
-import { User } from '../../user/user.entity';
-import { ResponseEnvelope, ResponseStatus } from '../../_core/models';
-import { Agent } from '../entities';
+import { Roles } from '../user/auth/roles.decorator';
+import { RolesGuard } from '../user/auth/roles.guard';
+import { HasOrganizationAccessGuard } from '../organization/guards/has-organization-access.guard';
+import { UserRole } from '../user/user-role.enum';
+import { User } from '../user/user.entity';
+import { ResponseEnvelope, ResponseStatus } from '../_core/models';
 
+import { Agent } from './agent.entity';
 import { AgentService } from './agent.service';
 import { AgentCreateDto, AgentUpdateDto } from './dtos';
 
-const basePath = 'organization/:orgId/image-generation/agents';
+const basePath = 'organization/:orgId/agents';
 
 @Controller(basePath)
 export class AgentController {
-	constructor(private readonly agentService: AgentService) {}
+	private readonly logger = new Logger(AgentController.name);
+	private readonly s3: AWS.S3;
+
+	constructor(private readonly agentService: AgentService) {
+		this.s3 = new AWS.S3({
+			accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+			secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+			region: process.env.AWS_REGION || 'us-east-1',
+		});
+	}
 
 	@Get()
 	@Roles(UserRole.SuperAdmin, UserRole.Admin)
@@ -328,13 +339,32 @@ export class AgentController {
 			);
 		}
 
-		// TODO: Implement S3 upload and document processing
-		// For now, create a placeholder document entry
+		const s3Key = `agent-documents/${orgId}/${id}/${Date.now()}-${file.originalname}`;
+
+		try {
+			await this.s3
+				.putObject({
+					Bucket: process.env.AWS_S3_BUCKET!,
+					Key: s3Key,
+					Body: file.buffer,
+					ContentType: file.mimetype,
+				})
+				.promise();
+		} catch {
+			throw new HttpException(
+				new ResponseEnvelope(
+					ResponseStatus.Failure,
+					'Error uploading file to storage.',
+				),
+				HttpStatus.INTERNAL_SERVER_ERROR,
+			);
+		}
+
 		const document = await this.agentService
 			.addDocument(id, {
 				filename: file.originalname,
 				mimeType: file.mimetype,
-				s3Key: `pending-${Date.now()}-${file.originalname}`,
+				s3Key,
 				metadata: {
 					fileSize: file.size,
 					processingStatus: 'pending',
@@ -404,7 +434,21 @@ export class AgentController {
 			);
 		}
 
-		// TODO: Delete from S3 as well
+		// Delete from S3 first; log but don't fail so the DB record is still cleaned up
+		if (document.s3Key) {
+			await this.s3
+				.deleteObject({
+					Bucket: process.env.AWS_S3_BUCKET!,
+					Key: document.s3Key,
+				})
+				.promise()
+				.catch((err) => {
+					this.logger.warn(
+						`Failed to delete S3 object "${document.s3Key}" for document ${documentId}: ${err.message}`,
+					);
+				});
+		}
+
 		await this.agentService.deleteDocument(documentId);
 
 		return new ResponseEnvelope(

@@ -11,9 +11,9 @@ import { ApiKey } from './api-key/api-key.entity';
 import { ApiKeyLog } from './api-key/api-key-log.entity';
 import { Space } from './space/space.entity';
 import { SpaceUser } from './space-user/space-user.entity';
+import { Agent } from './agent/agent.entity';
+import { AgentDocument } from './agent/agent-document.entity';
 import {
-	Agent,
-	AgentDocument,
 	GeneratedImage,
 	GenerationRequest,
 	PromptOptimizer,

@@ -15,7 +15,7 @@ import { HasOrganizationAccessGuard } from '../../organization/guards/has-organi
 import { UserRole } from '../../user/user-role.enum';
 import { ResponseEnvelope, ResponseStatus } from '../../_core/models';
 import { GeneratedImage } from '../entities';
-import { AgentService } from '../agent/agent.service';
+import { AgentService } from '../../agent/agent.service';
 
 import { EvaluationService } from './evaluation.service';
 

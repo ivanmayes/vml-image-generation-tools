@@ -1,11 +1,15 @@
 import { Controller, Post, Param, Logger, Get, Body } from '@nestjs/common';
 
 import { ResponseEnvelope, ResponseStatus } from '../_core/models';
+import { AgentService } from '../agent/agent.service';
 
 import { GenerationRequestService } from './generation-request/generation-request.service';
-import { AgentService } from './agent/agent.service';
 import { JobQueueService } from './jobs/job-queue.service';
-import { GenerationRequest, GenerationRequestStatus } from './entities';
+import {
+	GenerationRequest,
+	GenerationRequestStatus,
+	GenerationMode,
+} from './entities';
 
 /**
  * Debug controller for local testing (no authentication required).
@@ -562,6 +566,7 @@ Provide your evaluation as JSON with:
 			judgeIds: string[];
 			threshold?: number;
 			maxIterations?: number;
+			generationMode?: string;
 		},
 	) {
 		this.logger.log(`[DEBUG_COKE_TEST] Creating Coca-Cola test request`);
@@ -591,6 +596,9 @@ Provide your evaluation as JSON with:
 			},
 			threshold: body.threshold ?? 85, // Higher threshold for strict judges
 			maxIterations: body.maxIterations ?? 10, // More iterations to see improvement
+			generationMode:
+				(body.generationMode as GenerationMode) ??
+				GenerationMode.REGENERATION,
 		});
 
 		this.logger.log(`[DEBUG_COKE_TEST] Created request: ${request.id}`);

@@ -1,8 +1,8 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
-import { Agent, AgentDocument } from '../entities';
-
+import { Agent } from './agent.entity';
+import { AgentDocument } from './agent-document.entity';
 import { AgentService } from './agent.service';
 import { AgentController } from './agent.controller';
 

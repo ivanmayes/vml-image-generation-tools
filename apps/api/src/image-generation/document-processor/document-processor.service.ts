@@ -1,11 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { v4 as uuidv4 } from 'uuid';
-// Note: pdf-parse is lazily loaded to avoid DOMMatrix issues in Node.js
+import { PDFParse } from 'pdf-parse';
 import * as mammoth from 'mammoth';
 
 import { AIService } from '../../ai/ai.service';
-import { AgentService } from '../agent/agent.service';
-import { DocumentChunk } from '../entities';
+import { AgentService } from '../../agent/agent.service';
+import { DocumentChunk } from '../../agent/agent-document.entity';
 
 interface ParsedDocument {
 	text: string;
@@ -117,15 +117,22 @@ export class DocumentProcessorService {
 	}
 
 	/**
-	 * Parse PDF document
-	 * Note: PDF parsing is currently disabled due to pdfjs-dist DOMMatrix incompatibility with Node.js
+	 * Parse PDF document using pdf-parse
 	 */
-	private async parsePdf(_buffer: Buffer): Promise<ParsedDocument> {
-		// TODO: Implement PDF parsing with a Node.js compatible library
-		// The pdf-parse library requires DOMMatrix which isn't available in Node.js
-		throw new Error(
-			'PDF parsing is currently disabled. Please use DOCX or TXT format.',
-		);
+	private async parsePdf(buffer: Buffer): Promise<ParsedDocument> {
+		const pdf = new PDFParse({ data: buffer });
+		try {
+			const info = await pdf.getInfo();
+			const textResult = await pdf.getText();
+			return {
+				text: textResult.text,
+				metadata: {
+					pageCount: info.total,
+				},
+			};
+		} finally {
+			await pdf.destroy();
+		}
 	}
 
 	/**

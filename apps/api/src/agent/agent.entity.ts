@@ -11,7 +11,7 @@ import {
 } from 'typeorm';
 import { z } from 'zod';
 
-import { Organization } from '../../organization/organization.entity';
+import { Organization } from '../organization/organization.entity';
 
 import { AgentDocument } from './agent-document.entity';
 

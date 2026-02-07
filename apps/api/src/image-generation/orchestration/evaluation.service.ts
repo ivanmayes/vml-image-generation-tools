@@ -6,7 +6,8 @@ import {
 	AIMessage,
 	AIProvider,
 } from '../../_core/third-party/ai';
-import { Agent, AgentEvaluationSnapshot, GeneratedImage } from '../entities';
+import { Agent } from '../../agent/agent.entity';
+import { AgentEvaluationSnapshot, GeneratedImage } from '../entities';
 import { DocumentProcessorService } from '../document-processor/document-processor.service';
 
 export interface TopIssue {

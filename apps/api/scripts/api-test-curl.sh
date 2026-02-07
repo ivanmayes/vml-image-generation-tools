@@ -97,13 +97,13 @@ case $choice in
         if [ -z "$AUTH_TOKEN" ]; then
             log_warn "AUTH_TOKEN not set. This will likely fail."
         fi
-        api_call GET "/organization/${ORG_ID}/image-generation/agents" | jq .
+        api_call GET "/organization/${ORG_ID}/agents" | jq .
         ;;
 
     2)
         read -p "Enter Agent ID: " agent_id
         log_info "Getting agent details..."
-        api_call GET "/organization/${ORG_ID}/image-generation/agents/${agent_id}" | jq .
+        api_call GET "/organization/${ORG_ID}/agents/${agent_id}" | jq .
         ;;
 
     3)

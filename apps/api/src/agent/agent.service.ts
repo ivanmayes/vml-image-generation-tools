@@ -2,7 +2,8 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, FindOneOptions, FindManyOptions, IsNull } from 'typeorm';
 
-import { Agent, AgentDocument } from '../entities';
+import { Agent } from './agent.entity';
+import { AgentDocument } from './agent-document.entity';
 
 @Injectable()
 export class AgentService {
