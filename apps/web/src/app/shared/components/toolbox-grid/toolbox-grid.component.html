@@ -1,0 +1,18 @@
+<div class="toolbox-grid">
+	@for (tool of tools(); track tool.id) {
+		<div
+			class="tool-card"
+			[class.tool-card--disabled]="tool.comingSoon"
+			(click)="onToolClick(tool)"
+		>
+			<div class="tool-card__icon">
+				<i [class]="'pi pi-' + tool.icon"></i>
+			</div>
+			<h3 class="tool-card__name">{{ tool.name }}</h3>
+			<p class="tool-card__description">{{ tool.description }}</p>
+			@if (tool.comingSoon) {
+				<span class="tool-card__badge">Coming Soon</span>
+			}
+		</div>
+	}
+</div>
