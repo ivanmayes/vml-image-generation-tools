@@ -7,3 +7,4 @@ ssl
 ormconfig.json
 ormconfig.ts
 !.env.example
+debug-output
