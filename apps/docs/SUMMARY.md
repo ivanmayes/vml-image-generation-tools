@@ -18,6 +18,26 @@
 - [Database Schema](architecture/database-schema.md)
 - [Security Architecture](architecture/security.md)
 
+## Image Generation System
+
+- [Overview](image-generation/overview.md)
+- [Data Model](image-generation/data-model.md)
+- [Orchestration Pipeline](image-generation/orchestration.md)
+- [Agents & Evaluation](image-generation/agents-and-evaluation.md)
+- [Prompt Optimization](image-generation/prompt-optimization.md)
+- [Generation Modes](image-generation/generation-modes.md)
+- [Gemini Integration](image-generation/gemini-integration.md)
+- [RAG & Documents](image-generation/rag-documents.md)
+- [Events & Streaming](image-generation/events-and-streaming.md)
+- [Debug & Testing](image-generation/debug-and-testing.md)
+- [API Reference](image-generation/api-reference.md)
+
+## Tools
+
+- [Tools Overview](tools/overview.md)
+- [Compliance Checker](tools/compliance.md)
+- [Projects](tools/projects.md)
+
 ## API Reference
 
 - [API Overview](api/overview.md)
@@ -40,6 +60,9 @@
 
 - [Overview](web/overview.md)
 - [State Management](web/state-management.md)
+- [Generation Pages](web/generation-pages.md)
+- [Organization Admin](web/organization-admin.md)
+- [Shared Components](web/shared-components.md)
 
 ## Integrations
 
