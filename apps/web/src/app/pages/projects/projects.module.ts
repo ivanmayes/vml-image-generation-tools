@@ -31,9 +31,9 @@ import { ProjectDetailPage } from './project-detail/project-detail.page';
 			},
 			{
 				path: ':projectId/compliance',
-				loadChildren: () =>
-					import('../compliance/compliance.module').then(
-						(m) => m.ComplianceToolModule,
+				loadComponent: () =>
+					import('../compliance/compliance.page').then(
+						(m) => m.ComplianceToolPage,
 					),
 			},
 		]),

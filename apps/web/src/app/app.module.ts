@@ -10,8 +10,8 @@ import { AkitaNgRouterStoreModule } from '@datorama/akita-ng-router-store';
 
 // PrimeNG Configuration
 import { providePrimeNG } from 'primeng/config';
-import { definePreset } from '@primeng/themes';
-import Lara from '@primeng/themes/lara';
+import { definePreset } from '@primeuix/themes';
+import Lara from '@primeuix/themes/lara';
 
 import { RequestInterceptor } from './_core/interceptors/request.interceptor';
 import { PrimeNgModule } from './shared/primeng.module';

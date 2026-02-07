@@ -2,7 +2,7 @@
 
 .project-list-page {
 	padding: 24px;
-	animation: fadeSlideIn 0.3s ease both;
+	animation: fade-slide-in 0.3s ease both;
 }
 
 .list-header {
@@ -55,6 +55,7 @@
 
 .project-card {
 	@include surface-card-elevated;
+
 	display: flex;
 	align-items: flex-start;
 	gap: 16px;

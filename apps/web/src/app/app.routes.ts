@@ -19,9 +19,9 @@ export const routes: Routes = [
 	},
 	{
 		path: 'compliance',
-		loadChildren: () =>
-			import('./pages/compliance/compliance.module').then(
-				(m) => m.ComplianceToolModule,
+		loadComponent: () =>
+			import('./pages/compliance/compliance.page').then(
+				(m) => m.ComplianceToolPage,
 			),
 	},
 	{

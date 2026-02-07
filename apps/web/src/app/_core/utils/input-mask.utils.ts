@@ -116,7 +116,7 @@ export const currencyMaskWithDecimalWithNegatives = {
 	dispatch: (
 		appended: string,
 		dynamicMasked: IMaskMaskedDynamic,
-		flags: unknown,
+		flags: Record<string, unknown>,
 	) => {
 		let index = /[-]/i.test(dynamicMasked.value) ? 2 : 1;
 

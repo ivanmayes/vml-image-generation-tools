@@ -7,6 +7,7 @@ import { Title } from '@angular/platform-browser';
 import { MessageService } from 'primeng/api';
 
 import { environment } from '../../../environments/environment';
+import type { OrganizationSettings } from '../../../../../api/src/organization/organization.settings';
 
 import { GlobalService } from './global.service';
 import { GlobalStore } from './global.store';
@@ -107,7 +108,9 @@ describe('GlobalService', () => {
 
 	describe('updateOrganizationSettings', () => {
 		it('should update organization settings', () => {
-			const updatedSettings = { theme: 'dark' };
+			const updatedSettings: Partial<OrganizationSettings> = {
+				entities: {} as any,
+			};
 
 			service.updateOrganizationSettings(updatedSettings).subscribe();
 
