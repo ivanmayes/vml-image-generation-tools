@@ -11,16 +11,19 @@ $bp-wide: 1280px;
 		@content;
 	}
 }
+
 @mixin tablet {
 	@media (min-width: $bp-tablet) and (max-width: #{$bp-desktop - 1}) {
 		@content;
 	}
 }
+
 @mixin desktop {
 	@media (min-width: $bp-desktop) {
 		@content;
 	}
 }
+
 @mixin min($bp) {
 	@media (min-width: $bp) {
 		@content;
@@ -32,8 +35,8 @@ $bp-wide: 1280px;
 	background: var(--p-surface-0);
 	border-radius: var(--p-content-border-radius);
 	box-shadow:
-		0px 1px 4px rgb(52 58 63 / 5%),
-		0px 4px 12px rgb(52 58 63 / 12%);
+		0 1px 4px rgb(52 58 63 / 5%),
+		0 4px 12px rgb(52 58 63 / 12%);
 }
 
 // Spacing scale

@@ -88,7 +88,8 @@ export class JudgeDetailPage implements OnInit {
 
 		this.agentService.getAgent(this.organizationId, agentId).subscribe({
 			next: (response) => {
-				const agentData: Agent = response.data;
+				const agentData = response.data;
+				if (!agentData) return;
 				this.agent.set(agentData);
 				this.form.patchValue({
 					name: agentData.name || '',
@@ -203,7 +204,7 @@ export class JudgeDetailPage implements OnInit {
 
 		this.agentService.getDocuments(this.organizationId, agentId).subscribe({
 			next: (response) => {
-				this.documents.set(response.data);
+				this.documents.set(response.data ?? []);
 				this.loadingDocuments.set(false);
 			},
 			error: (error) => {

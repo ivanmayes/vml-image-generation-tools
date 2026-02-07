@@ -1,9 +1,10 @@
 import {
 	ChangeDetectionStrategy,
 	Component,
-	Input,
+	input,
 	OnInit,
 	signal,
+	inject,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -11,6 +12,7 @@ import { MessageService } from 'primeng/api';
 
 import { PrimeNgModule } from '../../primeng.module';
 import { AgentService } from '../../services/agent.service';
+import { getScoreSeverity } from '../../utils/score.utils';
 import { environment } from '../../../../environments/environment';
 import type { Agent, EvaluationResult } from '../../models/agent.model';
 
@@ -37,11 +39,11 @@ interface ImageSourceOption {
 	],
 })
 export class ImageEvaluatorComponent implements OnInit {
-	@Input() judgeId?: string;
-	@Input() judgeIds?: string[];
-	@Input() brief = '';
-	@Input() showJudgePicker = true;
-	@Input() showImageSourceOptions = true;
+	judgeId = input<string>();
+	judgeIds = input<string[]>();
+	brief = input('');
+	showJudgePicker = input(true);
+	showImageSourceOptions = input(true);
 
 	readonly organizationId = environment.organizationId;
 
@@ -70,21 +72,21 @@ export class ImageEvaluatorComponent implements OnInit {
 	evaluationResults = signal<EvaluationResult[]>([]);
 	aggregateScore = signal<number | null>(null);
 
-	constructor(
-		private readonly agentService: AgentService,
-		private readonly messageService: MessageService,
-	) {}
+	private readonly agentService = inject(AgentService);
+	private readonly messageService = inject(MessageService);
 
 	ngOnInit(): void {
 		// Auto-populate judge selection from inputs
-		if (this.judgeId) {
-			this.selectedJudgeIds = [this.judgeId];
-		} else if (this.judgeIds?.length) {
-			this.selectedJudgeIds = [...this.judgeIds];
+		const judgeIdVal = this.judgeId();
+		const judgeIdsVal = this.judgeIds();
+		if (judgeIdVal) {
+			this.selectedJudgeIds = [judgeIdVal];
+		} else if (judgeIdsVal?.length) {
+			this.selectedJudgeIds = [...judgeIdsVal];
 		}
 
 		// Load available judges for picker
-		if (this.showJudgePicker && !this.judgeId && !this.judgeIds?.length) {
+		if (this.showJudgePicker() && !judgeIdVal && !judgeIdsVal?.length) {
 			this.loadJudges();
 		}
 	}
@@ -152,7 +154,7 @@ export class ImageEvaluatorComponent implements OnInit {
 			.uploadComplianceImage(this.organizationId, file)
 			.subscribe({
 				next: (response) => {
-					this.uploadedImageUrl.set(response.data.url);
+					this.uploadedImageUrl.set(response.data?.url ?? null);
 					this.uploading.set(false);
 					this.messageService.add({
 						severity: 'success',
@@ -187,13 +189,14 @@ export class ImageEvaluatorComponent implements OnInit {
 
 		this.agentService
 			.evaluateImage(this.organizationId, {
-				brief: this.brief || 'Evaluate this image for compliance',
+				brief: this.brief() || 'Evaluate this image for compliance',
 				imageUrls: [this.resolvedImageUrl],
 				judgeIds: this.selectedJudgeIds,
 			})
 			.subscribe({
 				next: (response) => {
-					const evaluations = response.data.winner.evaluations ?? [];
+					const evaluations =
+						response.data?.winner?.evaluations ?? [];
 					this.evaluationResults.set(evaluations);
 
 					if (evaluations.length > 1) {
@@ -220,9 +223,5 @@ export class ImageEvaluatorComponent implements OnInit {
 			});
 	}
 
-	getScoreSeverity(score: number): 'success' | 'warn' | 'danger' {
-		if (score >= 80) return 'success';
-		if (score >= 60) return 'warn';
-		return 'danger';
-	}
+	readonly getScoreSeverity = getScoreSeverity;
 }

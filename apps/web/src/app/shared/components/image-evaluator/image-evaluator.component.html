@@ -1,6 +1,6 @@
 <div class="image-evaluator">
 	<!-- Judge Selection Card -->
-	@if (showJudgePicker && !judgeId && !judgeIds?.length) {
+	@if (showJudgePicker() && !judgeId() && !judgeIds()?.length) {
 		<div class="evaluator-card" style="animation-delay: 0.05s">
 			<h2 class="heading-section mt-0 mb-3">Judges</h2>
 
@@ -16,6 +16,7 @@
 						class="p-button-text p-button-sm ml-2"
 						(click)="retryLoadJudges()"
 						type="button"
+						aria-label="Retry loading judges"
 					></button>
 				</p-message>
 			} @else if (availableJudges().length === 0) {
@@ -44,7 +45,7 @@
 		<h2 class="heading-section mt-0 mb-3">Image</h2>
 
 		<!-- Image Source Selector -->
-		@if (showImageSourceOptions) {
+		@if (showImageSourceOptions()) {
 			<div class="field mb-4">
 				<p-selectButton
 					[(ngModel)]="selectedImageSource"
@@ -79,6 +80,7 @@
 							class="image-preview-thumb__remove"
 							(click)="clearImage()"
 							title="Clear"
+							aria-label="Clear image"
 							type="button"
 						>
 							<i class="pi pi-times"></i>
@@ -121,6 +123,7 @@
 							class="image-preview-thumb__remove"
 							(click)="clearImage()"
 							title="Remove"
+							aria-label="Remove image"
 							type="button"
 						>
 							<i class="pi pi-times"></i>
@@ -141,6 +144,7 @@
 						class="p-button-outlined"
 						(click)="imagePickerVisible = true"
 						type="button"
+						aria-label="Browse generated images"
 					></button>
 				}
 			</div>
@@ -154,6 +158,7 @@
 							class="image-preview-thumb__remove"
 							(click)="clearImage()"
 							title="Remove"
+							aria-label="Remove image"
 							type="button"
 						>
 							<i class="pi pi-times"></i>

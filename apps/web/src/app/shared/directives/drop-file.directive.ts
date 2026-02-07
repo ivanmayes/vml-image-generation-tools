@@ -1,10 +1,4 @@
-import {
-	Directive,
-	Output,
-	EventEmitter,
-	HostBinding,
-	HostListener,
-} from '@angular/core';
+import { Directive, output, HostBinding, HostListener } from '@angular/core';
 
 /**
  * Drop File Directive
@@ -15,7 +9,7 @@ import {
 	standalone: true,
 })
 export class DropFileDirective {
-	@Output() filesDropped = new EventEmitter<any>();
+	filesDropped = output<FileList>();
 
 	@HostBinding('class.drag-over') public dragOver = false;
 

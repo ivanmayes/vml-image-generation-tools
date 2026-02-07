@@ -3,14 +3,15 @@
 .image-evaluator {
 	display: flex;
 	flex-direction: column;
-	gap: 20px;
+	gap: 1.25rem;
 }
 
 // Section cards (mirrors .new-card from generation-new)
 .evaluator-card {
 	@include surface-card-elevated;
-	padding: 24px;
-	animation: fadeSlideIn 0.3s ease both;
+
+	padding: 1.5rem;
+	animation: fade-slide-in 0.3s ease both;
 
 	.field label {
 		font-size: 0.875rem;
@@ -24,9 +25,9 @@
 
 .image-preview-thumb {
 	position: relative;
-	width: 200px;
-	height: 200px;
-	border-radius: 8px;
+	width: 12.5rem;
+	height: 12.5rem;
+	border-radius: 0.5rem;
 	overflow: hidden;
 	border: 1px solid var(--p-surface-200);
 
@@ -38,14 +39,14 @@
 
 	&__remove {
 		position: absolute;
-		top: 6px;
-		right: 6px;
-		width: 24px;
-		height: 24px;
+		top: 0.375rem;
+		right: 0.375rem;
+		width: 1.5rem;
+		height: 1.5rem;
 		border-radius: 50%;
 		border: none;
-		background: rgba(0, 0, 0, 0.6);
-		color: #fff;
+		background: var(--p-overlay-modal-background);
+		color: var(--p-surface-0);
 		display: flex;
 		align-items: center;
 		justify-content: center;
@@ -54,7 +55,7 @@
 		transition: background 0.15s;
 
 		&:hover {
-			background: rgba(220, 38, 38, 0.85);
+			background: var(--p-red-600);
 		}
 	}
 }
@@ -93,12 +94,12 @@
 // Mobile
 @include mobile {
 	.evaluator-card {
-		padding: 16px;
+		padding: 1rem;
 	}
 
 	.image-preview-thumb {
-		width: 160px;
-		height: 160px;
+		width: 10rem;
+		height: 10rem;
 	}
 
 	.evaluator-submit {

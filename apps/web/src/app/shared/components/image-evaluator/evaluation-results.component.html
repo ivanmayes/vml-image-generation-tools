@@ -1,36 +1,36 @@
-@if (judgeName) {
-	<h4 class="judge-name">{{ judgeName }}</h4>
+@if (judgeName()) {
+	<h4 class="judge-name">{{ judgeName() }}</h4>
 }
 
 <div class="results-container">
 	<!-- Score Display -->
 	<div class="score-display">
-		<span class="score-value">{{ result.overallScore }}</span>
+		<span class="score-value">{{ result().overallScore }}</span>
 		<p-tag
 			[value]="
-				result.overallScore >= 80
+				result().overallScore >= 80
 					? 'Good'
-					: result.overallScore >= 60
+					: result().overallScore >= 60
 						? 'Fair'
 						: 'Poor'
 			"
-			[severity]="getScoreSeverity(result.overallScore)"
+			[severity]="getScoreSeverity(result().overallScore)"
 		></p-tag>
 	</div>
 
 	<!-- Top Issue -->
-	@if (result.topIssue) {
+	@if (result().topIssue; as topIssue) {
 		<div class="top-issue-card">
 			<div class="top-issue-header">
 				<strong>Top Issue</strong>
 				<p-tag
-					[value]="result.topIssue.severity"
-					[severity]="getSeverityColor(result.topIssue.severity)"
+					[value]="topIssue.severity"
+					[severity]="getSeverityColor(topIssue.severity)"
 				></p-tag>
 			</div>
-			<p class="top-issue-problem">{{ result.topIssue.problem }}</p>
+			<p class="top-issue-problem">{{ topIssue.problem }}</p>
 			<p class="top-issue-fix">
-				<strong>Fix:</strong> {{ result.topIssue.fix }}
+				<strong>Fix:</strong> {{ topIssue.fix }}
 			</p>
 		</div>
 	}
@@ -54,15 +54,17 @@
 	}
 
 	<!-- What Worked -->
-	@if (result.whatWorked && result.whatWorked.length > 0) {
-		<div class="section">
-			<h4>What Worked</h4>
-			<ul class="what-worked-list">
-				@for (item of result.whatWorked; track item) {
-					<li>{{ item }}</li>
-				}
-			</ul>
-		</div>
+	@if (result().whatWorked; as whatWorked) {
+		@if (whatWorked.length > 0) {
+			<div class="section">
+				<h4>What Worked</h4>
+				<ul class="what-worked-list">
+					@for (item of whatWorked; track item) {
+						<li>{{ item }}</li>
+					}
+				</ul>
+			</div>
+		}
 	}
 
 	<!-- Checklist -->
@@ -92,10 +94,10 @@
 	}
 
 	<!-- Feedback -->
-	@if (result.feedback) {
+	@if (result().feedback) {
 		<div class="section">
 			<h4>Feedback</h4>
-			<div class="feedback-block">{{ result.feedback }}</div>
+			<div class="feedback-block">{{ result().feedback }}</div>
 		</div>
 	}
 </div>

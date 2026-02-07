@@ -1,7 +1,8 @@
-import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
 import { PrimeNgModule } from '../../primeng.module';
+import { getScoreSeverity } from '../../utils/score.utils';
 import type { EvaluationResult } from '../../models/agent.model';
 
 @Component({
@@ -12,24 +13,22 @@ import type { EvaluationResult } from '../../models/agent.model';
 	imports: [CommonModule, PrimeNgModule],
 })
 export class EvaluationResultsComponent {
-	@Input({ required: true }) result!: EvaluationResult;
-	@Input() judgeName?: string;
+	result = input.required<EvaluationResult>();
+	judgeName = input<string>();
 
 	getChecklistEntries(): [string, { passed: boolean; note?: string }][] {
-		if (!this.result?.checklist) return [];
-		return Object.entries(this.result.checklist);
+		const checklist = this.result()?.checklist;
+		if (!checklist) return [];
+		return Object.entries(checklist);
 	}
 
 	getCategoryScoreEntries(): [string, number][] {
-		if (!this.result?.categoryScores) return [];
-		return Object.entries(this.result.categoryScores);
+		const categoryScores = this.result()?.categoryScores;
+		if (!categoryScores) return [];
+		return Object.entries(categoryScores);
 	}
 
-	getScoreSeverity(score: number): 'success' | 'warn' | 'danger' {
-		if (score >= 80) return 'success';
-		if (score >= 60) return 'warn';
-		return 'danger';
-	}
+	readonly getScoreSeverity = getScoreSeverity;
 
 	getSeverityColor(
 		severity: string,
