@@ -111,6 +111,16 @@ export class AgentService {
 		);
 	}
 
+	// Upload image for compliance evaluation
+	uploadComplianceImage(orgId: string, file: File): Observable<any> {
+		const formData = new FormData();
+		formData.append('file', file);
+		return this.http.post<any>(
+			`${this.apiUrl}/organization/${orgId}/image-generation/requests/images/upload`,
+			formData,
+		);
+	}
+
 	// Evaluate images with judges
 	evaluateImage(
 		orgId: string,

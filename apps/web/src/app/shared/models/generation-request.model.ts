@@ -77,6 +77,8 @@ export interface GenerationRequestPublic {
 	maxIterations: number;
 	threshold: number;
 	finalImageId?: string;
+	finalImageUrl?: string;
+	bestScore?: number;
 	completionReason?: CompletionReason;
 	costs: RequestCosts;
 	createdAt: string;
@@ -99,8 +101,12 @@ export interface GeneratedImage {
 	id: string;
 	requestId: string;
 	iterationNumber: number;
-	imageUrl: string;
-	prompt: string;
+	s3Url: string;
+	promptUsed?: string;
+	generationParams?: Record<string, unknown>;
+	width?: number;
+	height?: number;
+	mimeType?: string;
 	createdAt: string;
 }
 

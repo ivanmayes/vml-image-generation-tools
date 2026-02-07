@@ -157,4 +157,18 @@ export class GenerationRequestService {
 			{ headers: this.defaultHeaders },
 		);
 	}
+
+	/**
+	 * Get all generated images across the organization (for image picker)
+	 */
+	getOrganizationImages(
+		orgId: string,
+		limit: number = 50,
+		offset: number = 0,
+	): Observable<ApiResponse<GeneratedImage[]>> {
+		return this.http.get<ApiResponse<GeneratedImage[]>>(
+			`${this.basePath(orgId)}/images?limit=${limit}&offset=${offset}`,
+			{ headers: this.defaultHeaders },
+		);
+	}
 }

@@ -58,7 +58,7 @@ export interface TopIssue {
 export interface EvaluationResult {
 	agentId: string;
 	agentName: string;
-	score: number;
+	overallScore: number;
 	categoryScores?: Record<string, number>;
 	feedback: string;
 	topIssue?: TopIssue;
