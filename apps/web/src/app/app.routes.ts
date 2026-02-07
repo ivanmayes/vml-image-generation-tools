@@ -11,6 +11,27 @@ export const routes: Routes = [
 			import('./pages/home/home.module').then((m) => m.HomePageModule),
 	},
 	{
+		path: 'iterative-image-generation',
+		loadChildren: () =>
+			import('./pages/generation/generation.module').then(
+				(m) => m.GenerationPageModule,
+			),
+	},
+	{
+		path: 'compliance',
+		loadChildren: () =>
+			import('./pages/compliance/compliance.module').then(
+				(m) => m.ComplianceToolModule,
+			),
+	},
+	{
+		path: 'projects',
+		loadChildren: () =>
+			import('./pages/projects/projects.module').then(
+				(m) => m.ProjectsModule,
+			),
+	},
+	{
 		path: 'login',
 		loadChildren: () =>
 			import('./pages/login/login.module').then((m) => m.LoginPageModule),

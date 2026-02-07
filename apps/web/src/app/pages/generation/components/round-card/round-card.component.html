@@ -1,0 +1,145 @@
+<div class="round-card" [class.round-card--latest]="isLatest()">
+	<!-- Header (always visible, clickable to expand/collapse) -->
+	<div class="round-card__header" (click)="toggleExpanded()">
+		<div class="round-card__header-left">
+			<span class="round-card__number">
+				{{ iteration().iterationNumber }}
+			</span>
+			<span class="round-card__title">
+				Iteration {{ iteration().iterationNumber }}
+			</span>
+		</div>
+		<div class="round-card__header-right">
+			<span
+				class="round-card__score-chip"
+				[class]="getScoreClass(iteration().aggregateScore)"
+			>
+				{{ iteration().aggregateScore }}%
+			</span>
+			<i
+				class="pi round-card__chevron"
+				[class.pi-chevron-down]="!expanded()"
+				[class.pi-chevron-up]="expanded()"
+			>
+			</i>
+		</div>
+	</div>
+
+	<!-- Image thumbnails (ALWAYS visible) -->
+	@if (getIterationImages().length > 0) {
+		<div
+			class="round-card__thumbs"
+			[class.round-card__thumbs--collapsed]="!expanded()"
+		>
+			@for (image of getIterationImages(); track image.id) {
+				<div
+					class="round-card__thumb"
+					[class.round-card__thumb--selected]="
+						image.id === iteration().selectedImageId
+					"
+				>
+					<p-image
+						[src]="image.s3Url"
+						[alt]="'Iteration ' + iteration().iterationNumber"
+						[preview]="true"
+						appendTo="body"
+						width="100%"
+					/>
+					@if (image.id === iteration().selectedImageId) {
+						<div class="round-card__selected-badge">
+							<i class="pi pi-check"></i>
+						</div>
+					}
+				</div>
+			}
+		</div>
+	}
+
+	<!-- Body (collapsible) -->
+	@if (expanded()) {
+		<div class="round-card__body">
+			<!-- Optimized Prompt (collapsible) -->
+			<div class="round-card__prompt-section">
+				<button
+					class="round-card__prompt-toggle"
+					(click)="togglePrompt(); $event.stopPropagation()"
+				>
+					<i
+						class="pi"
+						[class.pi-chevron-right]="!showPrompt()"
+						[class.pi-chevron-down]="showPrompt()"
+					></i>
+					<span class="text-sm font-medium">Prompt Used</span>
+				</button>
+				@if (showPrompt()) {
+					<div class="round-card__prompt-content">
+						<p class="m-0 text-sm line-height-3 font-mono">
+							{{ iteration().optimizedPrompt }}
+						</p>
+					</div>
+				}
+			</div>
+
+			<!-- Top Issue -->
+			@if (iteration().evaluations?.[0]?.topIssue; as topIssue) {
+				<div class="round-card__top-issue">
+					<div class="flex align-items-center gap-2 mb-1">
+						<i
+							class="pi pi-exclamation-triangle text-orange-500"
+						></i>
+						<span class="text-sm font-semibold">Top Issue</span>
+						<p-tag
+							[value]="topIssue.severity"
+							[severity]="
+								topIssue.severity === 'critical'
+									? 'danger'
+									: topIssue.severity === 'major'
+										? 'warn'
+										: 'info'
+							"
+							class="text-xs"
+						/>
+					</div>
+					<p class="text-sm m-0 mb-1">{{ topIssue.problem }}</p>
+					<p class="text-sm text-color-secondary m-0">
+						<strong>Fix:</strong> {{ topIssue.fix }}
+					</p>
+				</div>
+			}
+
+			<!-- Judge Evaluations -->
+			@if (iteration().evaluations?.length) {
+				<div class="round-card__evaluations">
+					<p-accordion [multiple]="true">
+						@for (
+							evaluation of iteration().evaluations;
+							track evaluation.agentId;
+							let i = $index
+						) {
+							<p-accordion-panel [value]="'' + i">
+								<p-accordion-header>
+									<div class="round-card__eval-header">
+										<span class="font-medium">{{
+											evaluation.agentName
+										}}</span>
+										<span
+											class="round-card__eval-score font-mono"
+											>{{
+												evaluation.overallScore
+											}}%</span
+										>
+									</div>
+								</p-accordion-header>
+								<p-accordion-content>
+									<app-judge-feedback
+										[evaluation]="evaluation"
+									/>
+								</p-accordion-content>
+							</p-accordion-panel>
+						}
+					</p-accordion>
+				</div>
+			}
+		</div>
+	}
+</div>

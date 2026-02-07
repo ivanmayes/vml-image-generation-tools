@@ -1,0 +1,218 @@
+<div class="generation-new-page">
+	<!-- Header -->
+	<div class="new-header">
+		<div class="new-header__nav">
+			<p-button
+				icon="pi pi-arrow-left"
+				[text]="true"
+				(onClick)="onBack()"
+			/>
+			<span class="text-caption">ITERATIVE IMAGE GENERATION</span>
+		</div>
+		<h1 class="heading-page m-0">New Generation Request</h1>
+	</div>
+
+	<div class="new-content">
+		<!-- Content Card -->
+		<div class="new-card" style="animation-delay: 0.1s">
+			<h2 class="heading-section mt-0 mb-3">Content</h2>
+
+			<!-- Brief -->
+			<div class="field mb-4">
+				<label for="brief" class="block font-semibold mb-2">
+					Brief <span class="text-red-500">*</span>
+				</label>
+				<textarea
+					pTextarea
+					id="brief"
+					[(ngModel)]="brief"
+					rows="4"
+					class="w-full"
+					placeholder="Describe the image you want to generate..."
+				></textarea>
+				<small class="text-color-secondary"
+					>Describe the product, scene, or concept for the AI to
+					generate.</small
+				>
+			</div>
+
+			<!-- Initial Prompt (Optional) -->
+			<div class="field">
+				<label for="initialPrompt" class="block font-semibold mb-2">
+					Initial Prompt
+					<span class="text-color-secondary font-normal text-xs"
+						>Optional</span
+					>
+				</label>
+				<textarea
+					pTextarea
+					id="initialPrompt"
+					[(ngModel)]="initialPrompt"
+					rows="3"
+					class="w-full"
+					placeholder="Optionally provide a starting prompt..."
+				></textarea>
+				<small class="text-color-secondary"
+					>If provided, the first iteration will use this prompt
+					instead of generating one from the brief.</small
+				>
+			</div>
+		</div>
+
+		<!-- Image Settings Card -->
+		<div class="new-card" style="animation-delay: 0.15s">
+			<h2 class="heading-section mt-0 mb-3">Image Settings</h2>
+
+			<!-- Images per Iteration -->
+			<div class="field mb-4">
+				<label class="block font-semibold mb-2"
+					>Images per Iteration</label
+				>
+				<p-selectButton
+					[options]="imagesPerGenerationOptions"
+					[(ngModel)]="imagesPerGeneration"
+					optionLabel="label"
+					optionValue="value"
+				/>
+				<small class="text-color-secondary">
+					Number of images generated each iteration (best one is
+					kept).
+				</small>
+			</div>
+
+			<!-- Aspect Ratio -->
+			<div class="field mb-4">
+				<label class="block font-semibold mb-2">Aspect Ratio</label>
+				<p-selectButton
+					[options]="aspectRatioOptions"
+					[(ngModel)]="aspectRatio"
+					optionLabel="label"
+					optionValue="value"
+				/>
+				<small class="text-color-secondary">
+					Output image dimensions ratio.
+				</small>
+			</div>
+
+			<!-- Reference Images -->
+			<div class="field">
+				<label class="block font-semibold mb-2">
+					Reference Images
+					<span class="text-color-secondary font-normal text-xs"
+						>Optional</span
+					>
+				</label>
+
+				@if (referenceImageUrls.length > 0) {
+				<div class="reference-grid mb-3">
+					@for (url of referenceImageUrls; track url; let i = $index)
+					{
+					<div class="reference-thumb">
+						<img [src]="url" alt="Reference {{ i + 1 }}" />
+						<button
+							class="reference-thumb__remove"
+							(click)="removeReferenceImage(i)"
+							title="Remove"
+						>
+							<i class="pi pi-times"></i>
+						</button>
+					</div>
+					}
+				</div>
+				} @if (referenceImageUrls.length < 5) {
+				<p-fileUpload
+					mode="basic"
+					[customUpload]="true"
+					(uploadHandler)="onReferenceUpload($event)"
+					[auto]="true"
+					accept="image/jpeg,image/png,image/webp"
+					chooseLabel="Upload Reference"
+					chooseIcon="pi pi-image"
+					[disabled]="uploadingReference()"
+				/>
+				} @if (uploadingReference()) {
+				<p-progressBar
+					mode="indeterminate"
+					[style]="{ height: '4px', marginTop: '8px' }"
+				/>
+				}
+				<small class="text-color-secondary">
+					Upload up to 5 reference images for style guidance. Accepts
+					JPEG, PNG, or WebP.
+				</small>
+			</div>
+		</div>
+
+		<!-- Configuration Card -->
+		<div class="new-card" style="animation-delay: 0.2s">
+			<h2 class="heading-section mt-0 mb-3">Configuration</h2>
+
+			<!-- Judge Selection -->
+			<div class="field mb-4">
+				<label for="judges" class="block font-semibold mb-2">
+					Judges <span class="text-red-500">*</span>
+				</label>
+				@if (loadingAgents()) {
+				<p-skeleton width="100%" height="2.5rem" />
+				} @else if (agents().length === 0) {
+				<p-message severity="warn"
+					>No judges available. Create judges first in the Judges
+					section.</p-message
+				>
+				} @else {
+				<p-multiselect
+					id="judges"
+					[options]="agents()"
+					[(ngModel)]="selectedJudgeIds"
+					optionLabel="name"
+					optionValue="id"
+					placeholder="Select judges to evaluate images"
+					[showClear]="true"
+					class="w-full"
+					display="chip"
+				/>
+				}
+			</div>
+
+			<!-- Settings row -->
+			<div class="new-settings-row">
+				<div class="field">
+					<label for="maxIterations" class="block font-semibold mb-2"
+						>Max Iterations</label
+					>
+					<p-inputNumber
+						id="maxIterations"
+						[(ngModel)]="maxIterations"
+						[min]="1"
+						[max]="50"
+						[showButtons]="true"
+					/>
+				</div>
+				<div class="field">
+					<label for="threshold" class="block font-semibold mb-2"
+						>Score Threshold (%)</label
+					>
+					<p-inputNumber
+						id="threshold"
+						[(ngModel)]="threshold"
+						[min]="1"
+						[max]="100"
+						[showButtons]="true"
+						suffix="%"
+					/>
+				</div>
+			</div>
+		</div>
+
+		<!-- Submit -->
+		<div class="new-submit">
+			<p-button
+				label="Start Generation"
+				icon="pi pi-play"
+				(onClick)="onSubmit()"
+				[loading]="submitting()"
+				[disabled]="!brief.trim() || selectedJudgeIds.length === 0"
+			/>
+		</div>
+	</div>
+</div>

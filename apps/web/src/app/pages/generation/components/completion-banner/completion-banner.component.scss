@@ -1,0 +1,144 @@
+.completion-banner {
+	position: relative;
+	border-radius: 8px;
+	overflow: hidden;
+	animation: fadeSlideIn 0.4s ease 0.1s both;
+
+	&__accent {
+		position: absolute;
+		left: 0;
+		top: 0;
+		bottom: 0;
+		width: 4px;
+	}
+
+	&__content {
+		display: flex;
+		align-items: center;
+		gap: 16px;
+		padding: 20px 20px 20px 24px;
+	}
+
+	&__icon-block {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 48px;
+		height: 48px;
+		border-radius: 50%;
+		flex-shrink: 0;
+
+		i {
+			font-size: 1.25rem;
+		}
+	}
+
+	&__info {
+		flex: 1;
+	}
+
+	&__score {
+		text-align: center;
+		min-width: 80px;
+	}
+
+	&__score-number {
+		display: block;
+		font-size: 1.5rem;
+		font-weight: 700;
+		font-family: "Roboto Mono", monospace;
+	}
+
+	// Severity variants
+	&--success {
+		background: var(--p-green-50);
+
+		.completion-banner__accent {
+			background: var(--p-green-500);
+		}
+		.completion-banner__icon-block {
+			background: var(--p-green-100);
+			i {
+				color: var(--p-green-600);
+			}
+		}
+		.completion-banner__score-number {
+			color: var(--p-green-700);
+		}
+		h3 {
+			color: var(--p-green-700);
+		}
+		p {
+			color: var(--p-green-600);
+		}
+	}
+
+	&--danger {
+		background: var(--p-red-50);
+
+		.completion-banner__accent {
+			background: var(--p-red-500);
+		}
+		.completion-banner__icon-block {
+			background: var(--p-red-100);
+			i {
+				color: var(--p-red-600);
+			}
+		}
+		.completion-banner__score-number {
+			color: var(--p-red-700);
+		}
+		h3 {
+			color: var(--p-red-700);
+		}
+		p {
+			color: var(--p-red-600);
+		}
+	}
+
+	&--warn {
+		background: var(--p-yellow-50);
+
+		.completion-banner__accent {
+			background: var(--p-yellow-500);
+		}
+		.completion-banner__icon-block {
+			background: var(--p-yellow-100);
+			i {
+				color: var(--p-yellow-600);
+			}
+		}
+		.completion-banner__score-number {
+			color: var(--p-yellow-700);
+		}
+		h3 {
+			color: var(--p-yellow-700);
+		}
+		p {
+			color: var(--p-yellow-600);
+		}
+	}
+
+	&--info {
+		background: var(--p-blue-50);
+
+		.completion-banner__accent {
+			background: var(--p-blue-500);
+		}
+		.completion-banner__icon-block {
+			background: var(--p-blue-100);
+			i {
+				color: var(--p-blue-600);
+			}
+		}
+		.completion-banner__score-number {
+			color: var(--p-blue-700);
+		}
+		h3 {
+			color: var(--p-blue-700);
+		}
+		p {
+			color: var(--p-blue-600);
+		}
+	}
+}

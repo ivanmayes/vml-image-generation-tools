@@ -1,0 +1,140 @@
+<div class="generation-list-page">
+	<!-- Header -->
+	<div class="list-header">
+		<h1 class="heading-page m-0">Iterative Image Generation</h1>
+		<div class="list-header__actions">
+			<p-select
+				[options]="statuses"
+				[ngModel]="statusFilter()"
+				(ngModelChange)="onStatusFilterChange($event)"
+				placeholder="All Statuses"
+				[showClear]="true"
+			/>
+			<p-button
+				label="New Request"
+				icon="pi pi-plus"
+				(onClick)="onCreateNew()"
+			/>
+		</div>
+	</div>
+
+	<!-- Loading skeleton -->
+	@if (loading()) {
+	<div class="gen-grid">
+		@for (card of skeletonCards; track $index) {
+		<div class="gen-card gen-card--skeleton">
+			<div class="gen-card__image skeleton-shimmer"></div>
+			<div class="gen-card__body">
+				<div
+					class="skeleton-shimmer"
+					style="height: 16px; width: 85%; margin-bottom: 8px"
+				></div>
+				<div
+					class="skeleton-shimmer"
+					style="height: 16px; width: 60%; margin-bottom: 12px"
+				></div>
+				<div
+					class="skeleton-shimmer"
+					style="height: 14px; width: 70%"
+				></div>
+			</div>
+		</div>
+		}
+	</div>
+	}
+
+	<!-- Request list -->
+	@if (!loading()) { @if (requests().length === 0) {
+	<!-- Empty state -->
+	<div class="list-empty">
+		<div class="list-empty__icon">
+			<i class="pi pi-images"></i>
+		</div>
+		<h3 class="heading-section mb-2">No generation requests found</h3>
+		<p class="text-color-secondary mb-4">
+			Create your first image generation request to get started.
+		</p>
+		<p-button
+			label="Create your first request"
+			icon="pi pi-plus"
+			(onClick)="onCreateNew()"
+		/>
+	</div>
+	} @else {
+	<!-- Card grid -->
+	<div class="gen-grid">
+		@for (request of requests(); track request.id) {
+		<div class="gen-card" (click)="onCardClick(request)">
+			<!-- Image / Placeholder -->
+			<div class="gen-card__image">
+				@if (request.finalImageUrl) {
+				<img
+					[src]="request.finalImageUrl"
+					alt="Generated image"
+					loading="lazy"
+				/>
+				} @else {
+				<div
+					class="gen-card__placeholder"
+					[style.color]="getStatusColor(request.status)"
+				>
+					<i [class]="getStatusIcon(request.status)"></i>
+				</div>
+				}
+			</div>
+
+			<!-- Body -->
+			<div class="gen-card__body">
+				<div class="gen-card__brief">{{ request.brief }}</div>
+
+				<!-- Metadata bar -->
+				<div class="gen-card__meta">
+					<!-- Status icon -->
+					<span
+						class="gen-card__meta-item"
+						[pTooltip]="getStatusLabel(request.status)"
+						tooltipPosition="top"
+					>
+						<i
+							[class]="getStatusIcon(request.status)"
+							[style.color]="getStatusColor(request.status)"
+						></i>
+					</span>
+
+					<!-- Iteration progress -->
+					<span
+						class="gen-card__meta-item"
+						[pTooltip]="getIterationTooltip(request)"
+						tooltipPosition="top"
+					>
+						<i class="pi pi-sync"></i>
+						{{ request.currentIteration }}/{{ request.maxIterations
+						}}
+					</span>
+
+					<!-- Best score -->
+					<span
+						class="gen-card__meta-item"
+						[pTooltip]="getScoreTooltip(request)"
+						tooltipPosition="top"
+					>
+						<i class="pi pi-chart-bar"></i>
+						{{ formatScore(request) }}
+					</span>
+
+					<!-- Relative time -->
+					<span
+						class="gen-card__meta-item"
+						[pTooltip]="(request.createdAt | date : 'medium')!"
+						tooltipPosition="top"
+					>
+						<i class="pi pi-clock"></i>
+						{{ getRelativeTime(request.createdAt) }}
+					</span>
+				</div>
+			</div>
+		</div>
+		}
+	</div>
+	} }
+</div>

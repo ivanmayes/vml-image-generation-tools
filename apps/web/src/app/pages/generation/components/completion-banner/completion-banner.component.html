@@ -1,0 +1,27 @@
+<div class="completion-banner" [class]="'completion-banner--' + severity">
+	<div class="completion-banner__accent"></div>
+	<div class="completion-banner__content">
+		<div class="completion-banner__icon-block">
+			<i [class]="icon"></i>
+		</div>
+		<div class="completion-banner__info">
+			<h3 class="heading-card m-0 mb-1">
+				Generation
+				{{ isSuccess ? "Complete" : isFailed ? "Failed" : "Finished" }}
+			</h3>
+			<p class="m-0 text-sm">{{ reasonLabel }}</p>
+		</div>
+		@if (finalScore() !== undefined) {
+			<div class="completion-banner__score">
+				<span class="completion-banner__score-number"
+					>{{ finalScore() }}%</span
+				>
+				@if (threshold()) {
+					<span class="text-sm text-color-secondary"
+						>/ {{ threshold() }}%</span
+					>
+				}
+			</div>
+		}
+	</div>
+</div>

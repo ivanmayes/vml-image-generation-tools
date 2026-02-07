@@ -1,0 +1,109 @@
+<div class="judge-feedback">
+	<!-- Feedback text -->
+	@if (evaluation().feedback) {
+		<div class="judge-feedback__text">
+			<p class="m-0">{{ evaluation().feedback }}</p>
+		</div>
+	}
+
+	<!-- What Worked -->
+	@if (evaluation().whatWorked?.length) {
+		<div class="judge-feedback__section">
+			<span class="text-sm font-semibold block mb-2">What Worked</span>
+			<div class="flex flex-wrap gap-2">
+				@for (item of evaluation().whatWorked!; track item) {
+					<span class="judge-feedback__worked-chip">{{ item }}</span>
+				}
+			</div>
+		</div>
+	}
+
+	<!-- Top Issue -->
+	@if (evaluation().topIssue) {
+		<div class="judge-feedback__top-issue">
+			<div class="flex align-items-center gap-2 mb-1">
+				<i class="pi pi-exclamation-triangle text-orange-500"></i>
+				<span class="text-sm font-semibold">Top Issue</span>
+				<p-tag
+					[value]="evaluation().topIssue!.severity"
+					[severity]="
+						evaluation().topIssue!.severity === 'critical'
+							? 'danger'
+							: evaluation().topIssue!.severity === 'major'
+								? 'warn'
+								: 'info'
+					"
+					class="text-xs"
+				/>
+			</div>
+			<p class="text-sm m-0 mb-1">{{ evaluation().topIssue!.problem }}</p>
+			<p class="text-sm text-color-secondary m-0">
+				<strong>Fix:</strong> {{ evaluation().topIssue!.fix }}
+			</p>
+		</div>
+	}
+
+	<!-- Category Scores -->
+	@if (getCategoryEntries().length > 0) {
+		<div class="judge-feedback__section">
+			<span class="text-sm font-semibold block mb-2"
+				>Category Scores</span
+			>
+			<div class="judge-feedback__categories">
+				@for (cat of getCategoryEntries(); track cat.key) {
+					<div class="judge-feedback__category-row">
+						<span class="judge-feedback__category-label">{{
+							cat.key
+						}}</span>
+						<div class="judge-feedback__category-bar">
+							<div
+								class="judge-feedback__category-fill"
+								[style.width.%]="cat.value"
+							></div>
+						</div>
+						<span
+							class="judge-feedback__category-value font-mono"
+							>{{ cat.value }}</span
+						>
+					</div>
+				}
+			</div>
+		</div>
+	}
+
+	<!-- Checklist -->
+	@if (getChecklistEntries().length > 0) {
+		<div class="judge-feedback__section">
+			<span class="text-sm font-semibold block mb-2">Checklist</span>
+			<div class="judge-feedback__checklist">
+				@for (
+					item of getChecklistEntries();
+					track item.key;
+					let even = $even
+				) {
+					<div
+						class="judge-feedback__checklist-item"
+						[class.judge-feedback__checklist-item--alt]="even"
+					>
+						<i
+							class="pi text-sm"
+							[class.pi-check-circle]="item.passed"
+							[class.text-green-500]="item.passed"
+							[class.pi-times-circle]="!item.passed"
+							[class.text-red-500]="!item.passed"
+						>
+						</i>
+						<div>
+							<span class="text-sm">{{ item.key }}</span>
+							@if (item.note) {
+								<span class="text-xs text-color-secondary ml-1"
+									>({{ item.note }})</span
+								>
+							}
+						</div>
+					</div>
+				}
+			</div>
+		</div>
+	}
+</div>

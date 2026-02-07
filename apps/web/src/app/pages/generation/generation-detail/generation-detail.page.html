@@ -1,0 +1,210 @@
+<div class="generation-detail-page">
+	<!-- Loading skeleton -->
+	@if (loading()) {
+	<div class="detail-skeleton">
+		<div
+			class="skeleton-shimmer"
+			style="height: 80px; margin-bottom: 16px"
+		></div>
+		<div
+			class="skeleton-shimmer"
+			style="height: 120px; margin-bottom: 16px"
+		></div>
+		<div class="skeleton-shimmer" style="height: 200px"></div>
+	</div>
+	} @else if (request(); as req) {
+	<!-- Header -->
+	<div class="detail-header">
+		<div class="detail-header__nav">
+			<p-button
+				icon="pi pi-arrow-left"
+				[text]="true"
+				(onClick)="onBack()"
+			/>
+			<span class="text-caption">ITERATIVE IMAGE GENERATION</span>
+		</div>
+		<div class="detail-header__title">
+			<h1 class="heading-page m-0">Generation Request</h1>
+			<div class="detail-header__meta">
+				<span
+					class="detail-header__status-dot"
+					[class]="'status--' + req.status"
+				></span>
+				<span class="text-sm font-medium"
+					>{{ req.status | titlecase }}</span
+				>
+				@if (sseConnected()) {
+				<span class="detail-header__live-badge">Live</span>
+				}
+			</div>
+		</div>
+		@if (!isTerminal()) {
+		<div class="detail-header__progress">
+			<div class="detail-header__progress-text">
+				<span class="text-sm text-color-secondary">
+					Iteration {{ req.currentIteration }} of {{ req.maxIterations
+					}}
+				</span>
+				@if (isActive()) {
+				<p-progressSpinner
+					[style]="{ width: '18px', height: '18px' }"
+					strokeWidth="5"
+				/>
+				}
+			</div>
+			<div class="detail-header__progress-bar">
+				<div
+					class="detail-header__progress-fill"
+					[style.width.%]="(req.currentIteration / req.maxIterations) * 100"
+				></div>
+			</div>
+		</div>
+		}
+	</div>
+
+	<div class="detail-content">
+		<!-- Brief -->
+		<div class="brief-card">
+			<h3 class="heading-section mt-0 mb-2">Brief</h3>
+			<p class="m-0 line-height-3">{{ req.brief }}</p>
+			@if (req.initialPrompt) {
+			<div class="mt-3">
+				<span class="text-sm font-semibold text-color-secondary"
+					>Initial Prompt:</span
+				>
+				<p class="m-0 mt-1 text-sm font-mono line-height-3">
+					{{ req.initialPrompt }}
+				</p>
+			</div>
+			}
+		</div>
+
+		<!-- Final Image Hero -->
+		@if (finalImage(); as finalImg) {
+		<div class="final-image-hero">
+			<div class="final-image-hero__label">
+				<i class="pi pi-image"></i>
+				<span class="heading-section"
+					>{{ isTerminal() ? 'Final Result' : 'Latest Result' }}</span
+				>
+			</div>
+			<div class="final-image-hero__frame">
+				<p-image
+					[src]="finalImg.s3Url"
+					alt="Final generated image"
+					[preview]="true"
+					width="100%"
+				/>
+			</div>
+		</div>
+		}
+
+		<!-- Score Hero -->
+		@if (latestScore() !== null) {
+		<div class="score-hero">
+			<div class="score-hero__value">
+				<span class="score-hero__number"
+					>{{ latestScore() | number:'1.1-1' }}</span
+				>
+				<span class="score-hero__unit">%</span>
+			</div>
+			<div class="score-hero__detail">
+				<span class="heading-section">Current Score</span>
+				<span class="text-sm text-color-secondary"
+					>Target: {{ req.threshold }}%</span
+				>
+			</div>
+			<div class="score-hero__bar">
+				<div class="score-hero__bar-track">
+					<div
+						class="score-hero__bar-fill"
+						[style.width.%]="latestScore()!"
+					></div>
+					<div
+						class="score-hero__bar-threshold"
+						[style.left.%]="req.threshold"
+					></div>
+				</div>
+			</div>
+		</div>
+		}
+
+		<!-- Iteration Timeline -->
+		@if (iterations().length > 0) {
+		<div class="iteration-timeline">
+			<h3 class="heading-section mt-0 mb-3">Iteration Timeline</h3>
+			@for (iteration of iterations(); track iteration.iterationNumber;
+			let last = $last; let i = $index) {
+			<div
+				class="timeline-entry"
+				[class.is-active]="last && isActive()"
+				[style.animation-delay]="(i * 0.05) + 's'"
+			>
+				<app-round-card
+					[iteration]="iteration"
+					[images]="images()"
+					[isLatest]="last"
+					[defaultExpanded]="last"
+				/>
+			</div>
+			} @if (isActive()) {
+			<div class="timeline-entry is-active" style="animation-delay: 0s">
+				<div class="timeline-generating">
+					<p-progressSpinner
+						[style]="{ width: '24px', height: '24px' }"
+						strokeWidth="4"
+					/>
+					<span class="text-color-secondary text-sm">
+						Generating next iteration...
+					</span>
+				</div>
+			</div>
+			}
+			<div #timelineEnd></div>
+		</div>
+		} @else if (isActive()) {
+		<div class="brief-card">
+			<div class="flex align-items-center gap-3">
+				<p-progressSpinner
+					[style]="{ width: '32px', height: '32px' }"
+					strokeWidth="4"
+				/>
+				<span class="text-color-secondary">
+					Generation in progress... Waiting for first iteration.
+				</span>
+			</div>
+		</div>
+		}
+
+		<!-- Completion Banner -->
+		@if (isTerminal()) {
+		<div class="mb-4">
+			<app-completion-banner
+				[status]="req.status"
+				[completionReason]="req.completionReason"
+				[finalScore]="latestScore() ?? undefined"
+				[threshold]="req.threshold"
+			/>
+		</div>
+		}
+
+		<!-- Continuation Editor -->
+		@if (canContinue()) {
+		<div class="mb-4">
+			<app-continuation-editor
+				[lastPrompt]="lastPrompt()"
+				[submitting]="continuing()"
+				(continueRequest)="onContinue($event)"
+			/>
+		</div>
+		}
+
+		<!-- Error Message -->
+		@if (req.errorMessage) {
+		<div class="mb-4">
+			<p-message severity="error"> {{ req.errorMessage }} </p-message>
+		</div>
+		}
+	</div>
+	}
+</div>

@@ -1,0 +1,250 @@
+@use "../../../../../theme/utils" as *;
+
+.round-card {
+	@include surface-card-elevated;
+	padding: 0;
+	transition: box-shadow 0.2s;
+	animation: fadeSlideIn 0.3s ease both;
+
+	&--latest {
+		box-shadow:
+			0px 1px 4px rgb(52 58 63 / 5%),
+			0px 4px 12px rgb(52 58 63 / 12%),
+			0 0 0 1px var(--p-primary-200);
+	}
+
+	&__header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: 16px 20px;
+		cursor: pointer;
+		user-select: none;
+		border-bottom: 1px solid transparent;
+		transition: background 0.15s;
+
+		&:hover {
+			background: var(--p-surface-50);
+		}
+	}
+
+	&__header-left {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+	}
+
+	&__header-right {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+	}
+
+	&__number {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 28px;
+		height: 28px;
+		border-radius: 50%;
+		background: var(--p-primary-color);
+		color: var(--p-primary-contrast-color);
+		font-weight: 600;
+		font-size: 0.8rem;
+	}
+
+	&__title {
+		font-weight: 600;
+		font-size: 0.9375rem;
+	}
+
+	&__score-chip {
+		display: inline-flex;
+		align-items: center;
+		padding: 4px 12px;
+		border-radius: 12px;
+		font-size: 0.8125rem;
+		font-weight: 600;
+		font-family: "Roboto Mono", monospace;
+
+		&--success {
+			background: var(--p-green-50);
+			color: var(--p-green-700);
+		}
+
+		&--warn {
+			background: var(--p-yellow-50);
+			color: var(--p-yellow-700);
+		}
+
+		&--danger {
+			background: var(--p-red-50);
+			color: var(--p-red-700);
+		}
+	}
+
+	&__chevron {
+		font-size: 0.75rem;
+		color: var(--p-text-muted-color);
+		transition: transform 0.2s;
+	}
+
+	// Image thumbnails (always visible)
+	&__thumbs {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+		gap: 12px;
+		padding: 0 20px 16px;
+
+		&--collapsed {
+			display: flex;
+			gap: 8px;
+			padding: 8px 20px 12px;
+			overflow-x: auto;
+
+			.round-card__thumb {
+				width: 80px;
+				min-width: 80px;
+				height: 80px;
+			}
+		}
+	}
+
+	&__thumb {
+		position: relative;
+		border-radius: 8px;
+		overflow: hidden;
+		border: 2px solid transparent;
+		aspect-ratio: 1;
+		background: var(--p-surface-100);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		transition:
+			transform 0.2s,
+			border-color 0.2s;
+
+		&:hover {
+			transform: scale(1.02);
+		}
+
+		&--selected {
+			border-color: var(--p-primary-color);
+		}
+
+		:host ::ng-deep .p-image {
+			width: 100%;
+			height: 100%;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+
+			img {
+				width: 100%;
+				height: 100%;
+				object-fit: contain;
+			}
+		}
+	}
+
+	&__selected-badge {
+		position: absolute;
+		top: 6px;
+		right: 6px;
+		width: 22px;
+		height: 22px;
+		border-radius: 50%;
+		background: var(--p-primary-color);
+		color: white;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		font-size: 0.7rem;
+	}
+
+	// Body
+	&__body {
+		padding: 0 20px 20px;
+		animation: fadeSlideIn 0.25s ease both;
+	}
+
+	// Prompt section
+	&__prompt-section {
+		margin-bottom: 16px;
+	}
+
+	&__prompt-toggle {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		background: none;
+		border: none;
+		padding: 0;
+		color: var(--p-text-color);
+		cursor: pointer;
+
+		&:hover {
+			color: var(--p-primary-color);
+		}
+	}
+
+	&__prompt-content {
+		margin-top: 8px;
+		padding: 12px;
+		background: var(--p-surface-ground);
+		border-radius: 6px;
+		animation: fadeSlideIn 0.2s ease both;
+	}
+
+	// Top Issue
+	&__top-issue {
+		padding: 12px;
+		background: var(--p-surface-ground);
+		border-radius: 6px;
+		border-left: 3px solid var(--p-orange-500);
+		margin-bottom: 16px;
+		animation: fadeSlideIn 0.3s ease both;
+	}
+
+	// Evaluations
+	&__evaluations {
+		border-top: 1px solid var(--p-surface-100);
+		padding-top: 12px;
+	}
+
+	&__eval-header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		width: 100%;
+		padding-right: 12px;
+	}
+
+	&__eval-score {
+		font-size: 0.875rem;
+		font-weight: 600;
+		color: var(--p-text-muted-color);
+	}
+}
+
+// Mobile
+@include mobile {
+	.round-card {
+		&__thumbs {
+			grid-template-columns: repeat(2, 1fr);
+
+			&--collapsed {
+				padding: 8px 16px 12px;
+			}
+		}
+
+		&__header {
+			padding: 12px 16px;
+			min-height: 44px;
+		}
+
+		&__body {
+			padding: 0 16px 16px;
+		}
+	}
+}

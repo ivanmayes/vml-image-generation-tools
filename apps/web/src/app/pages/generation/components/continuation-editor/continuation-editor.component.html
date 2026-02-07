@@ -1,0 +1,67 @@
+<div class="continuation-editor">
+	<div class="continuation-editor__header" (click)="toggle()">
+		<div class="continuation-editor__header-left">
+			<div class="continuation-editor__icon-block">
+				<i class="pi pi-refresh"></i>
+			</div>
+			<h3 class="heading-card m-0">Continue Generation</h3>
+		</div>
+		<i
+			class="pi continuation-editor__chevron"
+			[class.pi-chevron-down]="!expanded()"
+			[class.pi-chevron-up]="expanded()"
+		>
+		</i>
+	</div>
+
+	@if (expanded()) {
+		<div class="continuation-editor__body">
+			<!-- Prompt Override -->
+			<div class="field mb-3">
+				<label class="block text-sm font-semibold mb-2"
+					>Prompt (editable)</label
+				>
+				<textarea
+					pTextarea
+					[(ngModel)]="promptOverride"
+					rows="4"
+					class="w-full"
+					placeholder="Edit the prompt for continued generation..."
+				></textarea>
+				<small class="text-color-secondary"
+					>Modify the prompt to guide the next round of
+					iterations.</small
+				>
+			</div>
+
+			<!-- Additional Iterations -->
+			<div class="field mb-3">
+				<label class="block text-sm font-semibold mb-2"
+					>Additional Iterations</label
+				>
+				<p-inputNumber
+					[(ngModel)]="additionalIterations"
+					[min]="1"
+					[max]="20"
+					[showButtons]="true"
+				/>
+			</div>
+
+			<!-- Actions -->
+			<div class="continuation-editor__actions">
+				<p-button
+					label="Cancel"
+					[text]="true"
+					severity="secondary"
+					(onClick)="toggle()"
+				/>
+				<p-button
+					label="Continue"
+					icon="pi pi-play"
+					(onClick)="onContinue()"
+					[loading]="submitting()"
+				/>
+			</div>
+		</div>
+	}
+</div>

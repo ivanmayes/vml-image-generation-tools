@@ -30,10 +30,10 @@ const routes: Routes = [
 					),
 			},
 			{
-				path: 'generation',
+				path: 'compliance',
 				loadChildren: () =>
-					import('./generation/generation.module').then(
-						(m) => m.GenerationPageModule,
+					import('./compliance/compliance.module').then(
+						(m) => m.CompliancePageModule,
 					),
 			},
 			{

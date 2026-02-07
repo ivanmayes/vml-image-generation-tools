@@ -1,0 +1,57 @@
+@use "../../../../../theme/utils" as *;
+
+.continuation-editor {
+	@include surface-card-elevated;
+	border-left: 4px solid var(--p-primary-500);
+	overflow: hidden;
+
+	&__header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: 16px 20px;
+		cursor: pointer;
+		transition: background 0.15s;
+
+		&:hover {
+			background: var(--p-surface-50);
+		}
+	}
+
+	&__header-left {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+	}
+
+	&__icon-block {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 40px;
+		height: 40px;
+		border-radius: 50%;
+		background: var(--p-primary-50);
+
+		i {
+			color: var(--p-primary-500);
+			font-size: 1rem;
+		}
+	}
+
+	&__chevron {
+		font-size: 0.75rem;
+		color: var(--p-text-muted-color);
+	}
+
+	&__body {
+		padding: 0 20px 20px;
+		animation: fadeSlideIn 0.25s ease both;
+	}
+
+	&__actions {
+		display: flex;
+		justify-content: flex-end;
+		gap: 8px;
+	}
+}

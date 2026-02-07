@@ -1,0 +1,128 @@
+@use "../../../../theme/utils" as *;
+
+.generation-new-page {
+	animation: fadeSlideIn 0.3s ease both;
+}
+
+// Header
+.new-header {
+	padding: 20px 24px;
+	border-bottom: 1px solid var(--p-surface-100);
+
+	&__nav {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		margin-bottom: 8px;
+	}
+}
+
+// Content area
+.new-content {
+	max-width: 720px;
+	margin: 0 auto;
+	padding: 24px;
+	display: flex;
+	flex-direction: column;
+	gap: 20px;
+}
+
+// Section cards
+.new-card {
+	@include surface-card-elevated;
+	padding: 24px;
+	animation: fadeSlideIn 0.3s ease both;
+
+	.field label {
+		font-size: 0.875rem;
+	}
+}
+
+// Settings row
+.new-settings-row {
+	display: flex;
+	gap: 24px;
+}
+
+// Reference image grid
+.reference-grid {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 12px;
+}
+
+.reference-thumb {
+	position: relative;
+	width: 80px;
+	height: 80px;
+	border-radius: 8px;
+	overflow: hidden;
+	border: 1px solid var(--p-surface-200);
+
+	img {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+	}
+
+	&__remove {
+		position: absolute;
+		top: 4px;
+		right: 4px;
+		width: 20px;
+		height: 20px;
+		border-radius: 50%;
+		border: none;
+		background: rgba(0, 0, 0, 0.6);
+		color: #fff;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		cursor: pointer;
+		font-size: 0.6rem;
+		transition: background 0.15s;
+
+		&:hover {
+			background: rgba(220, 38, 38, 0.85);
+		}
+	}
+}
+
+// Submit
+.new-submit {
+	display: flex;
+	justify-content: flex-end;
+}
+
+// Mobile
+@include mobile {
+	.new-header {
+		position: sticky;
+		top: 0;
+		z-index: 10;
+		backdrop-filter: blur(12px);
+		background: rgba(255, 255, 255, 0.85);
+		padding: 12px 16px;
+	}
+
+	.new-content {
+		max-width: none;
+		padding: 16px;
+		gap: 16px;
+	}
+
+	.new-card {
+		padding: 16px;
+	}
+
+	.new-settings-row {
+		flex-direction: column;
+		gap: 16px;
+	}
+
+	.new-submit {
+		:host ::ng-deep .p-button {
+			width: 100%;
+		}
+	}
+}
