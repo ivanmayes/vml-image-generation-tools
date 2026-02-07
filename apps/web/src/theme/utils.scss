@@ -1,2 +1,47 @@
 // Utility classes and mixins
-// Add utility classes here as needed
+
+// Breakpoints
+$bp-mobile: 576px;
+$bp-tablet: 768px;
+$bp-desktop: 1024px;
+$bp-wide: 1280px;
+
+@mixin mobile {
+	@media (max-width: #{$bp-tablet - 1}) {
+		@content;
+	}
+}
+@mixin tablet {
+	@media (min-width: $bp-tablet) and (max-width: #{$bp-desktop - 1}) {
+		@content;
+	}
+}
+@mixin desktop {
+	@media (min-width: $bp-desktop) {
+		@content;
+	}
+}
+@mixin min($bp) {
+	@media (min-width: $bp) {
+		@content;
+	}
+}
+
+// Surface card mixin (elevated)
+@mixin surface-card-elevated {
+	background: var(--p-surface-0);
+	border-radius: var(--p-content-border-radius);
+	box-shadow:
+		0px 1px 4px rgb(52 58 63 / 5%),
+		0px 4px 12px rgb(52 58 63 / 12%);
+}
+
+// Spacing scale
+$spacing: (
+	xs: 4px,
+	sm: 8px,
+	md: 16px,
+	lg: 24px,
+	xl: 32px,
+	2xl: 48px,
+);
