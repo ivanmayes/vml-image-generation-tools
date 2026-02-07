@@ -10,16 +10,15 @@ import {
 	CreateDateColumn,
 } from 'typeorm';
 
-import { Organization } from '../../organization/organization.entity';
-import { Space } from '../../space/space.entity';
-
-import { GenerationRequest } from './generation-request.entity';
+import { Organization } from '../organization/organization.entity';
+import { Space } from '../space/space.entity';
+import { GenerationRequest } from '../image-generation/entities/generation-request.entity';
 
 /**
  * Project entity — groups multiple tool types (image generation, etc.) under one hub.
  * Belongs to an organization and optionally to a space (workspace).
  */
-@Entity('image_generation_projects')
+@Entity('projects')
 @Index(['organizationId'])
 @Index(['organizationId', 'spaceId'])
 @Index(['organizationId', 'deletedAt'])

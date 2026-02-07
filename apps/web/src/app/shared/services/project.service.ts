@@ -1,6 +1,8 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import type { ProjectCreateDto } from '@api/project/dtos/project-create.dto';
+import type { ProjectUpdateDto } from '@api/project/dtos/project-update.dto';
 
 import { environment } from '../../../environments/environment';
 import { Project } from '../models/project.model';
@@ -9,18 +11,6 @@ interface ApiResponse<T> {
 	status: string;
 	message?: string;
 	data?: T;
-}
-
-export interface CreateProjectDto {
-	name: string;
-	description?: string;
-	spaceId?: string;
-}
-
-export interface UpdateProjectDto {
-	name?: string;
-	description?: string;
-	settings?: Record<string, unknown>;
 }
 
 @Injectable({
@@ -35,7 +25,7 @@ export class ProjectService {
 	constructor(private readonly http: HttpClient) {}
 
 	private basePath(orgId: string): string {
-		return `${this.apiUrl}/organization/${orgId}/image-generation/projects`;
+		return `${this.apiUrl}/organization/${orgId}/projects`;
 	}
 
 	getProjects(
@@ -80,7 +70,7 @@ export class ProjectService {
 
 	createProject(
 		orgId: string,
-		dto: CreateProjectDto,
+		dto: ProjectCreateDto,
 	): Observable<ApiResponse<Project>> {
 		return this.http.post<ApiResponse<Project>>(this.basePath(orgId), dto, {
 			headers: this.defaultHeaders,
@@ -90,7 +80,7 @@ export class ProjectService {
 	updateProject(
 		orgId: string,
 		projectId: string,
-		dto: UpdateProjectDto,
+		dto: ProjectUpdateDto,
 	): Observable<ApiResponse<Project>> {
 		return this.http.put<ApiResponse<Project>>(
 			`${this.basePath(orgId)}/${projectId}`,

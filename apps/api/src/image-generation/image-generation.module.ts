@@ -1,13 +1,15 @@
 import { Module } from '@nestjs/common';
 
-import { AgentModule } from './agent/agent.module';
+import { AgentModule } from '../agent/agent.module';
+
 import { DocumentProcessorModule } from './document-processor/document-processor.module';
 import { PromptOptimizerModule } from './prompt-optimizer/prompt-optimizer.module';
 import { GenerationRequestModule } from './generation-request/generation-request.module';
-import { ProjectModule } from './project/project.module';
 import { JobsModule } from './jobs/jobs.module';
 import { OrchestrationModule } from './orchestration/orchestration.module';
 import { DebugController } from './debug.controller';
+
+const isDevelopment = process.env.NODE_ENV !== 'production';
 
 @Module({
 	imports: [
@@ -15,17 +17,14 @@ import { DebugController } from './debug.controller';
 		DocumentProcessorModule,
 		PromptOptimizerModule,
 		GenerationRequestModule,
-		ProjectModule,
 		JobsModule,
 		OrchestrationModule,
 	],
-	controllers: [DebugController],
+	controllers: isDevelopment ? [DebugController] : [],
 	exports: [
-		AgentModule,
 		DocumentProcessorModule,
 		PromptOptimizerModule,
 		GenerationRequestModule,
-		ProjectModule,
 		JobsModule,
 		OrchestrationModule,
 	],

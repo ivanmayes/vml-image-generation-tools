@@ -13,19 +13,21 @@ import {
 	Logger,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { ApiTags } from '@nestjs/swagger';
 
-import { Roles } from '../../user/auth/roles.decorator';
-import { RolesGuard } from '../../user/auth/roles.guard';
-import { HasOrganizationAccessGuard } from '../../organization/guards/has-organization-access.guard';
-import { UserRole } from '../../user/user-role.enum';
-import { ResponseEnvelope, ResponseStatus } from '../../_core/models';
-import { Project } from '../entities';
+import { Roles } from '../user/auth/roles.decorator';
+import { RolesGuard } from '../user/auth/roles.guard';
+import { HasOrganizationAccessGuard } from '../organization/guards/has-organization-access.guard';
+import { UserRole } from '../user/user-role.enum';
+import { ResponseEnvelope, ResponseStatus } from '../_core/models';
 
+import { Project } from './project.entity';
 import { ProjectService } from './project.service';
 import { ProjectCreateDto, ProjectUpdateDto } from './dtos';
 
-const basePath = 'organization/:orgId/image-generation/projects';
+const basePath = 'organization/:orgId/projects';
 
+@ApiTags('Projects')
 @Controller(basePath)
 export class ProjectController {
 	private readonly logger = new Logger(ProjectController.name);

@@ -11,9 +11,9 @@ import {
 
 import { Organization } from '../../organization/organization.entity';
 import { Space } from '../../space/space.entity';
+import { Project } from '../../project/project.entity';
 
 import { GeneratedImage } from './generated-image.entity';
-import { Project } from './project.entity';
 
 /**
  * Request status enum
@@ -37,6 +37,15 @@ export enum CompletionReason {
 	DIMINISHING_RETURNS = 'DIMINISHING_RETURNS',
 	CANCELLED = 'CANCELLED',
 	ERROR = 'ERROR',
+}
+
+/**
+ * Generation strategy mode
+ */
+export enum GenerationMode {
+	REGENERATION = 'regeneration',
+	EDIT = 'edit',
+	MIXED = 'mixed',
 }
 
 /**
@@ -70,6 +79,9 @@ export interface IterationSnapshot {
 	aggregateScore: number;
 	evaluations: AgentEvaluationSnapshot[];
 	createdAt: Date;
+	mode?: 'regeneration' | 'edit';
+	editSourceImageId?: string;
+	consecutiveEditCount?: number;
 }
 
 /**
@@ -169,6 +181,13 @@ export class GenerationRequest {
 
 	@Column({
 		type: 'enum',
+		enum: GenerationMode,
+		default: GenerationMode.REGENERATION,
+	})
+	generationMode!: GenerationMode;
+
+	@Column({
+		type: 'enum',
 		enum: GenerationRequestStatus,
 		default: GenerationRequestStatus.PENDING,
 	})
@@ -254,6 +273,7 @@ export class GenerationRequest {
 			threshold: this.threshold,
 			finalImageId: this.finalImageId,
 			completionReason: this.completionReason,
+			generationMode: this.generationMode,
 			costs: this.costs,
 			createdAt: this.createdAt,
 			completedAt: this.completedAt,
