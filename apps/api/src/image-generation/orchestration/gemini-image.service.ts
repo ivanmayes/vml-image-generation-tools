@@ -1,6 +1,13 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { GoogleGenAI } from '@google/genai';
 
+import { BoundingBox } from '../interfaces/bounding-box.interface';
+import {
+	extractBoundingBox,
+	stitchTileBack,
+	combineMaskWithBackground,
+} from '../utils/image-processing.utils';
+
 interface FetchedReferenceImage {
 	base64: string;
 	mimeType: string;
@@ -449,5 +456,185 @@ export class GeminiImageService {
 		);
 
 		return results;
+	}
+
+	/**
+	 * Generate within a bounding box region and stitch the result back into the original image.
+	 * (Stitch mode: extract region → edit with Gemini → composite back)
+	 */
+	public async generateInRegion(
+		prompt: string,
+		backgroundImage: Buffer,
+		boundingBox: BoundingBox,
+		options: GeminiImageOptions = {},
+	): Promise<GeneratedImageResult> {
+		const startTime = Date.now();
+		this.logger.log(
+			`[GEMINI_STITCH_START] Prompt: "${prompt.substring(0, 80)}..." | ` +
+				`BBox: ${boundingBox.left},${boundingBox.top} ${boundingBox.width}x${boundingBox.height}`,
+		);
+
+		try {
+			// 1. Extract bounding box region, fitted to Gemini model ratios
+			const extracted = await extractBoundingBox(
+				backgroundImage,
+				boundingBox,
+			);
+
+			this.logger.log(
+				`[GEMINI_STITCH_EXTRACT] Tile extracted | ` +
+					`AspectRatio: ${extracted.aspectRatio} | ImageSize: ${extracted.imageSize}`,
+			);
+
+			// 2. Convert tile to base64 and edit with Gemini
+			const tileBase64 = extracted.tile.toString('base64');
+			const editResult = await this.editImage(
+				tileBase64,
+				`${prompt.replace(/\.$/, '')}. Do not modify the edges of the image.`,
+				{
+					...options,
+					aspectRatio: extracted.aspectRatio,
+				},
+			);
+
+			// 3. Stitch the generated tile back into the original
+			const stitchedImage = await stitchTileBack(
+				backgroundImage,
+				editResult.imageData,
+				extracted.fittedBoundingBox,
+			);
+
+			const totalTime = Date.now() - startTime;
+			this.logger.log(
+				`[GEMINI_STITCH_COMPLETE] Size: ${stitchedImage.length} bytes | TotalTime: ${totalTime}ms`,
+			);
+
+			return {
+				imageData: stitchedImage,
+				mimeType: 'image/png',
+			};
+		} catch (error) {
+			const totalTime = Date.now() - startTime;
+			const message =
+				error instanceof Error ? error.message : 'Unknown error';
+			this.logger.error(
+				`[GEMINI_STITCH_FAILED] Error: ${message} | Time: ${totalTime}ms`,
+			);
+			throw error;
+		}
+	}
+
+	/**
+	 * Inpaint an image using a mask. Optionally scoped to a bounding box region.
+	 *
+	 * Without boundingBox: applies mask to full image, sends to Gemini for fill.
+	 * With boundingBox: extracts region from both background and mask, applies mask
+	 * to extracted region, sends to Gemini, then stitches result back.
+	 */
+	public async inpaintImage(
+		backgroundImageBase64: string,
+		maskImageBase64: string,
+		prompt: string,
+		options: GeminiImageOptions = {},
+		boundingBox?: BoundingBox,
+	): Promise<GeneratedImageResult> {
+		const startTime = Date.now();
+		this.logger.log(
+			`[GEMINI_INPAINT_START] Prompt: "${prompt.substring(0, 80)}..." | ` +
+				`HasBoundingBox: ${!!boundingBox}`,
+		);
+
+		try {
+			const backgroundBuffer = Buffer.from(
+				backgroundImageBase64,
+				'base64',
+			);
+			const maskBuffer = Buffer.from(maskImageBase64, 'base64');
+
+			let maskedImage: Buffer;
+			let originalForStitch: Buffer | undefined;
+			let stitchBox: BoundingBox | undefined;
+			let extractedAspectRatio: string | undefined;
+
+			if (boundingBox) {
+				// Combined mode: extract region, apply mask, then stitch back
+				originalForStitch = backgroundBuffer;
+
+				const bgExtracted = await extractBoundingBox(
+					backgroundBuffer,
+					boundingBox,
+				);
+				const maskExtracted = await extractBoundingBox(
+					maskBuffer,
+					boundingBox,
+				);
+
+				maskedImage = await combineMaskWithBackground(
+					bgExtracted.tile,
+					maskExtracted.tile,
+				);
+				stitchBox = bgExtracted.fittedBoundingBox;
+				extractedAspectRatio = bgExtracted.aspectRatio;
+			} else {
+				// Full image mode: apply mask to entire background
+				maskedImage = await combineMaskWithBackground(
+					backgroundBuffer,
+					maskBuffer,
+				);
+			}
+
+			// Build inpainting prompt
+			const inpaintingPrompt = `You are an expert photo editor. The user has provided an image with a transparent area and a text prompt.
+
+**Your task:** Realistically fill the transparent area based on the user's instructions and the surrounding context of the image.
+- The result must be photorealistic and seamlessly blend with the original image.
+- Match the lighting, shadows, textures, and style of the original content.
+- **Crucially, do not change any part of the image outside of the transparent area.**
+
+**User's prompt:** "${prompt}"`;
+
+			// Send masked image to Gemini
+			const maskedBase64 = maskedImage.toString('base64');
+			const editResult = await this.editImage(
+				maskedBase64,
+				inpaintingPrompt,
+				{
+					...options,
+					...(extractedAspectRatio && {
+						aspectRatio: extractedAspectRatio,
+					}),
+				},
+			);
+
+			let finalImage = editResult.imageData;
+
+			// If we extracted a region, stitch the result back
+			if (originalForStitch && stitchBox) {
+				finalImage = await stitchTileBack(
+					originalForStitch,
+					editResult.imageData,
+					stitchBox,
+				);
+			}
+
+			const totalTime = Date.now() - startTime;
+			this.logger.log(
+				`[GEMINI_INPAINT_COMPLETE] Size: ${finalImage.length} bytes | ` +
+					`Mode: ${boundingBox ? 'region' : 'full'} | TotalTime: ${totalTime}ms`,
+			);
+
+			return {
+				imageData: finalImage,
+				mimeType: 'image/png',
+			};
+		} catch (error) {
+			const totalTime = Date.now() - startTime;
+			const message =
+				error instanceof Error ? error.message : 'Unknown error';
+			this.logger.error(
+				`[GEMINI_INPAINT_FAILED] Error: ${message} | Time: ${totalTime}ms`,
+			);
+			throw error;
+		}
 	}
 }
