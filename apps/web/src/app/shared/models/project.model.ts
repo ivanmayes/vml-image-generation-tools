@@ -5,5 +5,6 @@ export interface Project {
 	name: string;
 	description?: string;
 	settings: Record<string, unknown>;
+	createdBy?: string;
 	createdAt: string;
 }

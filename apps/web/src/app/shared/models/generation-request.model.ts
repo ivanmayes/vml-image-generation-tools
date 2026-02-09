@@ -87,6 +87,7 @@ export interface GenerationRequestPublic {
 	completionReason?: CompletionReason;
 	generationMode?: GenerationMode;
 	costs: RequestCosts;
+	createdBy?: string;
 	createdAt: string;
 	completedAt?: string;
 }

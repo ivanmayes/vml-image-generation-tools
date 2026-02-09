@@ -1,5 +1,5 @@
 <div class="judges-page">
-	<h1 class="mb-4">Judges Management</h1>
+	<h1 class="mb-4">Agents</h1>
 
 	<p-toolbar styleClass="mb-4">
 		<ng-template pTemplate="start">
@@ -9,7 +9,7 @@
 					pInputText
 					type="text"
 					(input)="onSearch($event)"
-					placeholder="Search judges..."
+					placeholder="Search agents..."
 					class="w-80"
 				/>
 			</p-iconfield>
@@ -17,10 +17,10 @@
 		<ng-template pTemplate="end">
 			<button
 				pButton
-				label="Create Judge"
+				label="Create Agent"
 				icon="pi pi-plus"
 				(click)="navigateToCreate()"
-				aria-label="Create Judge"
+				aria-label="Create Agent"
 			></button>
 		</ng-template>
 	</p-toolbar>
@@ -30,7 +30,7 @@
 		[paginator]="true"
 		[rows]="10"
 		[showCurrentPageReport]="true"
-		currentPageReportTemplate="Showing {first} to {last} of {totalRecords} judges"
+		currentPageReportTemplate="Showing {first} to {last} of {totalRecords} agents"
 		styleClass="p-datatable-striped"
 		(onSort)="onSort($event)"
 	>
@@ -39,10 +39,12 @@
 				<th [pSortableColumn]="'name'" class="cursor-pointer">
 					Name <p-sortIcon [field]="'name'"></p-sortIcon>
 				</th>
-				<th>Optimization Weight</th>
-				<th>Scoring Weight</th>
-				<th [pSortableColumn]="'created'" class="cursor-pointer">
-					Created <p-sortIcon [field]="'created'"></p-sortIcon>
+				<th>Status</th>
+				<th>Type</th>
+				<th>Can Judge</th>
+				<th>Model</th>
+				<th [pSortableColumn]="'createdAt'" class="cursor-pointer">
+					Created <p-sortIcon [field]="'createdAt'"></p-sortIcon>
 				</th>
 				<th style="width: 150px">Actions</th>
 			</tr>
@@ -54,14 +56,43 @@
 				<td>
 					<button
 						type="button"
-						class="judge-name-link p-link"
+						class="agent-name-link p-link"
 						(click)="navigateToDetail(agent.id)"
 					>
 						{{ agent.name }}
 					</button>
 				</td>
-				<td>{{ agent.optimizationWeight }}</td>
-				<td>{{ agent.scoringWeight }}</td>
+				<td>
+					<p-tag
+						[value]="agent.status || 'ACTIVE'"
+						[severity]="agent.status === 'INACTIVE' ? 'secondary' : 'success'"
+					></p-tag>
+				</td>
+				<td>
+					@if (agent.agentType) {
+					<p-tag [value]="agent.agentType" severity="info"></p-tag>
+					} @else {
+					<span class="text-muted">-</span>
+					}
+				</td>
+				<td>
+					@if (agent.canJudge !== false) {
+					<i
+						class="pi pi-check"
+						style="color: var(--p-green-500)"
+					></i>
+					} @else {
+					<i
+						class="pi pi-times"
+						style="color: var(--p-text-color-secondary)"
+					></i>
+					}
+				</td>
+				<td>
+					@if (agent.modelTier) { {{ agent.modelTier }} } @else {
+					<span class="text-muted">-</span>
+					}
+				</td>
 				<td>{{ formatDate(agent.createdAt) }}</td>
 				<td>
 					<div class="action-buttons">
@@ -69,16 +100,16 @@
 							pButton
 							icon="pi pi-pencil"
 							class="p-button-rounded p-button-text p-button-sm"
-							pTooltip="Edit Judge"
-							aria-label="Edit Judge"
+							pTooltip="Edit Agent"
+							aria-label="Edit Agent"
 							(click)="navigateToDetail(agent.id)"
 						></button>
 						<button
 							pButton
 							icon="pi pi-trash"
 							class="p-button-rounded p-button-text p-button-sm p-button-danger"
-							pTooltip="Delete Judge"
-							aria-label="Delete Judge"
+							pTooltip="Delete Agent"
+							aria-label="Delete Agent"
 							(click)="deleteAgent(agent)"
 						></button>
 					</div>
@@ -91,13 +122,15 @@
 				<td><p-skeleton /></td>
 				<td><p-skeleton /></td>
 				<td><p-skeleton /></td>
+				<td><p-skeleton /></td>
+				<td><p-skeleton /></td>
 			</tr>
 			}
 		</ng-template>
 
 		<ng-template pTemplate="emptymessage">
 			<tr>
-				<td colspan="5" class="text-center">
+				<td colspan="7" class="text-center">
 					<div class="empty-state">
 						<i
 							class="pi pi-inbox"
@@ -106,13 +139,13 @@
 								color: var(--text-color-secondary);
 							"
 						></i>
-						<p>No judges found</p>
+						<p>No agents found</p>
 						<button
 							pButton
-							label="Create a Judge"
+							label="Create an Agent"
 							icon="pi pi-plus"
 							(click)="navigateToCreate()"
-							aria-label="Create a Judge"
+							aria-label="Create an Agent"
 						></button>
 					</div>
 				</td>

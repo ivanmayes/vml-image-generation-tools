@@ -47,7 +47,7 @@ export class ImageEvaluatorComponent implements OnInit {
 
 	readonly organizationId = environment.organizationId;
 
-	// Judge selection
+	// Agent selection
 	availableJudges = signal<Agent[]>([]);
 	selectedJudgeIds: string[] = [];
 	loadingJudges = signal(false);
@@ -76,7 +76,7 @@ export class ImageEvaluatorComponent implements OnInit {
 	private readonly messageService = inject(MessageService);
 
 	ngOnInit(): void {
-		// Auto-populate judge selection from inputs
+		// Auto-populate agent selection from inputs
 		const judgeIdVal = this.judgeId();
 		const judgeIdsVal = this.judgeIds();
 		if (judgeIdVal) {
@@ -85,7 +85,7 @@ export class ImageEvaluatorComponent implements OnInit {
 			this.selectedJudgeIds = [...judgeIdsVal];
 		}
 
-		// Load available judges for picker
+		// Load available agents for picker
 		if (this.showJudgePicker() && !judgeIdVal && !judgeIdsVal?.length) {
 			this.loadJudges();
 		}
@@ -105,7 +105,7 @@ export class ImageEvaluatorComponent implements OnInit {
 				this.messageService.add({
 					severity: 'error',
 					summary: 'Error',
-					detail: 'Failed to load judges',
+					detail: 'Failed to load agents',
 					life: 5000,
 				});
 			},
@@ -145,7 +145,7 @@ export class ImageEvaluatorComponent implements OnInit {
 		this.imageUrl = '';
 	}
 
-	onUpload(event: any): void {
+	onUpload(event: { files?: File[] }): void {
 		const file = event.files?.[0];
 		if (!file) return;
 

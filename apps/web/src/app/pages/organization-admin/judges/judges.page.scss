@@ -6,7 +6,7 @@
 		gap: 0.25rem;
 	}
 
-	.judge-name-link {
+	.agent-name-link {
 		color: var(--p-primary-color);
 		cursor: pointer;
 		text-decoration: none;
@@ -17,6 +17,10 @@
 			color: var(--p-primary-600);
 			text-decoration: underline;
 		}
+	}
+
+	.text-muted {
+		color: var(--p-text-color-secondary);
 	}
 
 	.text-center {

@@ -9,7 +9,7 @@ import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { MessageService, ConfirmationService } from 'primeng/api';
 import { ConfirmDialogModule } from 'primeng/confirmdialog';
-import { Subject } from 'rxjs';
+import { Subject, Subscription } from 'rxjs';
 import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 
 import { AgentService } from '../../../shared/services/agent.service';
@@ -31,10 +31,11 @@ export class JudgesPage implements OnInit, OnDestroy {
 	loading = signal(false);
 
 	organizationId!: string;
-	currentSortField = 'created';
+	currentSortField = 'createdAt';
 	currentSortOrder = 'desc';
 	currentSearchQuery = '';
 	private searchSubject = new Subject<string>();
+	private searchSubscription: Subscription;
 	readonly skeletonRows = Array(5).fill({});
 
 	constructor(
@@ -44,7 +45,7 @@ export class JudgesPage implements OnInit, OnDestroy {
 		private readonly router: Router,
 	) {
 		// Debounce search input by 400ms
-		this.searchSubject
+		this.searchSubscription = this.searchSubject
 			.pipe(debounceTime(400), distinctUntilChanged())
 			.subscribe((query) => {
 				this.currentSearchQuery = query;
@@ -85,7 +86,7 @@ export class JudgesPage implements OnInit, OnDestroy {
 					this.messageService.add({
 						severity: 'error',
 						summary: 'Error',
-						detail: 'Failed to load judges',
+						detail: 'Failed to load agents',
 						life: 3000,
 					});
 					this.loading.set(false);
@@ -99,10 +100,11 @@ export class JudgesPage implements OnInit, OnDestroy {
 	}
 
 	ngOnDestroy(): void {
+		this.searchSubscription.unsubscribe();
 		this.searchSubject.complete();
 	}
 
-	onSort(event: any): void {
+	onSort(event: { field: string; order: number }): void {
 		this.currentSortField = event.field;
 		this.currentSortOrder = event.order === 1 ? 'asc' : 'desc';
 		this.loadAgents(
@@ -122,7 +124,7 @@ export class JudgesPage implements OnInit, OnDestroy {
 
 	deleteAgent(agent: Agent): void {
 		this.confirmationService.confirm({
-			message: `Are you sure you want to delete the judge "${agent.name}"? This action cannot be undone.`,
+			message: `Are you sure you want to delete the agent "${agent.name}"? This action cannot be undone.`,
 			header: 'Confirm Delete',
 			icon: 'pi pi-exclamation-triangle',
 			accept: () => {
@@ -134,7 +136,7 @@ export class JudgesPage implements OnInit, OnDestroy {
 							this.messageService.add({
 								severity: 'success',
 								summary: 'Success',
-								detail: 'Judge deleted successfully',
+								detail: 'Agent deleted successfully',
 								life: 3000,
 							});
 						},
@@ -143,7 +145,7 @@ export class JudgesPage implements OnInit, OnDestroy {
 							this.messageService.add({
 								severity: 'error',
 								summary: 'Error',
-								detail: 'Failed to delete judge',
+								detail: 'Failed to delete agent',
 								life: 3000,
 							});
 						},

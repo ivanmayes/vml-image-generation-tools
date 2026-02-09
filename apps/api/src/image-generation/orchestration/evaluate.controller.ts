@@ -72,6 +72,15 @@ export class EvaluateController {
 			);
 		}
 
+		const nonJudgeAgents = agents.filter((a) => !a.canJudge);
+		if (nonJudgeAgents.length > 0) {
+			const names = nonJudgeAgents.map((a) => a.name).join(', ');
+			return new ResponseEnvelope(
+				ResponseStatus.Failure,
+				`The following agents are not configured as judges: ${names}`,
+			);
+		}
+
 		// Load agents with documents for RAG context
 		const agentsWithDocs = await Promise.all(
 			agents.map((a) => this.agentService.getWithDocuments(a.id, orgId)),

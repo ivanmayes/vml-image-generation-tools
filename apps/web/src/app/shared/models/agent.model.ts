@@ -17,6 +17,23 @@ export interface RagConfig {
 	similarityThreshold: number;
 }
 
+// Enum option constants for dropdowns
+export const AGENT_TYPES: { label: string; value: string }[] = [
+	{ label: 'Expert (Full Context)', value: 'EXPERT' },
+	{ label: 'Audience (Summarized)', value: 'AUDIENCE' },
+];
+
+export const MODEL_TIERS: { label: string; value: string }[] = [
+	{ label: 'Pro', value: 'PRO' },
+	{ label: 'Flash', value: 'FLASH' },
+];
+
+export const THINKING_LEVELS: { label: string; value: string }[] = [
+	{ label: 'Low', value: 'LOW' },
+	{ label: 'Medium', value: 'MEDIUM' },
+	{ label: 'High', value: 'HIGH' },
+];
+
 // Agent interface matching API toPublic() response
 export interface Agent {
 	id: string;
@@ -28,7 +45,22 @@ export interface Agent {
 	scoringWeight: number;
 	ragConfig: RagConfig;
 	templateId?: string;
+	createdBy?: string;
 	createdAt: string;
+	updatedAt: string;
+	canJudge: boolean;
+	description?: string;
+	teamPrompt?: string;
+	aiSummary?: string;
+	agentType?: 'EXPERT' | 'AUDIENCE';
+	modelTier?: 'PRO' | 'FLASH';
+	thinkingLevel?: 'LOW' | 'MEDIUM' | 'HIGH';
+	status: 'ACTIVE' | 'INACTIVE';
+	capabilities: string[];
+	teamAgentIds: string[];
+	temperature?: number;
+	maxTokens?: number;
+	avatarUrl?: string;
 }
 
 // AgentDocument interface matching API toPublic() response

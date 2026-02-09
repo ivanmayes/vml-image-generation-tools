@@ -12,6 +12,7 @@ import {
 import { Organization } from '../../organization/organization.entity';
 import { Space } from '../../space/space.entity';
 import { Project } from '../../project/project.entity';
+import { User } from '../../user/user.entity';
 
 import { GeneratedImage } from './generated-image.entity';
 
@@ -119,6 +120,7 @@ export interface AgentEvaluationSnapshot {
 @Index(['status'])
 @Index(['organizationId', 'status'])
 @Index(['organizationId', 'projectId'])
+@Index(['organizationId', 'createdBy'])
 export class GenerationRequest {
 	[key: string]: unknown;
 
@@ -222,6 +224,13 @@ export class GenerationRequest {
 	@Column('text', { nullable: true })
 	errorMessage?: string;
 
+	@Column('uuid', { nullable: true })
+	createdBy?: string;
+
+	@ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
+	@JoinColumn({ name: 'createdBy' })
+	creator?: User;
+
 	@OneToMany(() => GeneratedImage, (image) => image.request, { eager: false })
 	images?: GeneratedImage[];
 
@@ -275,6 +284,7 @@ export class GenerationRequest {
 			completionReason: this.completionReason,
 			generationMode: this.generationMode,
 			costs: this.costs,
+			createdBy: this.createdBy,
 			createdAt: this.createdAt,
 			completedAt: this.completedAt,
 		};

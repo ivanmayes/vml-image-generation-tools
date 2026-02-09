@@ -24,7 +24,6 @@ import {
 	SpacePublicController,
 } from './space/space.controller';
 import { SpaceUserController } from './space-user/space-user.controller';
-import { AgentController } from './agent/agent.controller';
 import { PromptOptimizerController } from './image-generation/prompt-optimizer/prompt-optimizer.controller';
 import { GenerationRequestController } from './image-generation/generation-request/generation-request.controller';
 import { ProjectController } from './project/project.controller';
@@ -54,7 +53,6 @@ Global();
 		SpaceController,
 		SpacePublicController,
 		SpaceUserController,
-		AgentController,
 		PromptOptimizerController,
 		GenerationRequestController,
 		ProjectController,

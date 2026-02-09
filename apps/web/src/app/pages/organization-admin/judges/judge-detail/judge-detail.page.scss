@@ -49,6 +49,52 @@
 			}
 		}
 
+		.toggle-row {
+			display: flex;
+			gap: 3rem;
+			margin-bottom: 1.5rem;
+
+			.toggle-field {
+				display: flex;
+				align-items: center;
+				gap: 0.75rem;
+				flex-wrap: wrap;
+
+				label {
+					font-weight: 600;
+					color: var(--p-text-color);
+					margin: 0;
+				}
+
+				.helper-text {
+					flex-basis: 100%;
+					color: var(--p-text-color-secondary);
+					font-size: 0.875rem;
+					margin-top: -0.25rem;
+				}
+			}
+		}
+
+		.slider-input-row {
+			display: flex;
+			align-items: center;
+			gap: 1.5rem;
+
+			.flex-1 {
+				flex: 1;
+			}
+		}
+
+		.avatar-preview-row {
+			display: flex;
+			align-items: center;
+			gap: 1rem;
+
+			.flex-1 {
+				flex: 1;
+			}
+		}
+
 		.form-actions {
 			display: flex;
 			justify-content: flex-end;
@@ -79,5 +125,13 @@
 	.system-prompt-textarea {
 		max-height: 400px;
 		overflow-y: auto !important;
+	}
+
+	p-multiselect .p-multiselect {
+		width: 100%;
+	}
+
+	p-select .p-select {
+		width: 100%;
 	}
 }

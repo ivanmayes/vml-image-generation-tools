@@ -1,8 +1,19 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, FindOneOptions, FindManyOptions, IsNull } from 'typeorm';
+import {
+	Repository,
+	FindOneOptions,
+	FindManyOptions,
+	FindOptionsWhere,
+	IsNull,
+} from 'typeorm';
 
-import { Agent } from './agent.entity';
+import {
+	UserContext,
+	isAdminRole,
+} from '../_core/interfaces/user-context.interface';
+
+import { Agent, AgentStatus } from './agent.entity';
 import { AgentDocument } from './agent-document.entity';
 
 @Injectable()
@@ -23,7 +34,16 @@ export class AgentService {
 	}
 
 	public async create(agent: Partial<Agent>) {
-		const entity = this.agentRepository.create(agent);
+		const entity = this.agentRepository.create({
+			canJudge: true,
+			status: AgentStatus.ACTIVE,
+			capabilities: [],
+			teamAgentIds: [],
+			ragConfig: { topK: 5, similarityThreshold: 0.7 },
+			optimizationWeight: 50,
+			scoringWeight: 50,
+			...agent,
+		});
 		return this.agentRepository.save(entity);
 	}
 
@@ -40,8 +60,73 @@ export class AgentService {
 		return this.agentRepository.save(agent);
 	}
 
-	public async softDelete(id: string) {
+	public async softDelete(id: string, organizationId?: string) {
+		// Remove deleted agent from other agents' teamAgentIds to prevent stale references
+		if (organizationId) {
+			await this.agentRepository.query(
+				`UPDATE image_generation_agents
+				 SET "teamAgentIds" = array_remove("teamAgentIds", $1::uuid)
+				 WHERE "organizationId" = $2
+				 AND $1::uuid = ANY("teamAgentIds")
+				 AND "deletedAt" IS NULL`,
+				[id, organizationId],
+			);
+		}
 		return this.agentRepository.softDelete(id);
+	}
+
+	public async restore(id: string, organizationId: string) {
+		const agent = await this.agentRepository.findOne({
+			where: { id, organizationId },
+			withDeleted: true,
+		});
+
+		if (!agent) {
+			throw new NotFoundException('Agent not found');
+		}
+
+		if (!agent.deletedAt) {
+			return agent;
+		}
+
+		await this.agentRepository.restore(id);
+		agent.deletedAt = null;
+		return agent;
+	}
+
+	public async findOneWithTeam(
+		id: string,
+		organizationId: string,
+		userContext?: UserContext,
+	) {
+		const where: FindOptionsWhere<Agent> = {
+			id,
+			organizationId,
+			deletedAt: IsNull(),
+		};
+
+		if (userContext && !isAdminRole(userContext.role)) {
+			where.createdBy = userContext.userId;
+		}
+
+		const agent = await this.agentRepository.findOne({
+			where,
+			relations: ['documents'],
+		});
+
+		if (!agent) {
+			throw new NotFoundException('Agent not found');
+		}
+
+		let teamAgents: Agent[] = [];
+		if (agent.teamAgentIds && agent.teamAgentIds.length > 0) {
+			teamAgents = await this.findByIds(
+				agent.teamAgentIds,
+				organizationId,
+			);
+		}
+
+		return { ...agent, teamAgents };
 	}
 
 	public async findByOrganization(
@@ -49,6 +134,9 @@ export class AgentService {
 		query?: string,
 		sortBy?: string,
 		sortOrder?: string,
+		status?: AgentStatus,
+		canJudge?: boolean,
+		userContext?: UserContext,
 	) {
 		const qb = this.agentRepository
 			.createQueryBuilder('agent')
@@ -61,12 +149,29 @@ export class AgentService {
 			});
 		}
 
+		if (status) {
+			qb.andWhere('agent.status = :status', { status });
+		}
+
+		if (canJudge !== undefined) {
+			qb.andWhere('agent.canJudge = :canJudge', { canJudge });
+		}
+
+		if (userContext && !isAdminRole(userContext.role)) {
+			qb.andWhere('agent.createdBy = :userId', {
+				userId: userContext.userId,
+			});
+		}
+
 		// Whitelist allowed sort fields to prevent SQL injection
 		const allowedSortFields = [
 			'createdAt',
+			'updatedAt',
 			'name',
 			'optimizationWeight',
 			'scoringWeight',
+			'status',
+			'agentType',
 		];
 		const field = allowedSortFields.includes(sortBy ?? '')
 			? sortBy!
@@ -95,9 +200,23 @@ export class AgentService {
 			.getMany();
 	}
 
-	public async getWithDocuments(id: string, organizationId: string) {
+	public async getWithDocuments(
+		id: string,
+		organizationId: string,
+		userContext?: UserContext,
+	) {
+		const where: FindOptionsWhere<Agent> = {
+			id,
+			organizationId,
+			deletedAt: IsNull(),
+		};
+
+		if (userContext && !isAdminRole(userContext.role)) {
+			where.createdBy = userContext.userId;
+		}
+
 		return this.agentRepository.findOne({
-			where: { id, organizationId, deletedAt: IsNull() },
+			where,
 			relations: ['documents'],
 		});
 	}

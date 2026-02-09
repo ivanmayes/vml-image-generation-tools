@@ -11,6 +11,7 @@ import {
 	HttpStatus,
 	Query,
 	Logger,
+	Req,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiTags } from '@nestjs/swagger';
@@ -19,7 +20,9 @@ import { Roles } from '../user/auth/roles.decorator';
 import { RolesGuard } from '../user/auth/roles.guard';
 import { HasOrganizationAccessGuard } from '../organization/guards/has-organization-access.guard';
 import { UserRole } from '../user/user-role.enum';
+import { User } from '../user/user.entity';
 import { ResponseEnvelope, ResponseStatus } from '../_core/models';
+import { UserContext } from '../_core/interfaces/user-context.interface';
 
 import { Project } from './project.entity';
 import { ProjectService } from './project.service';
@@ -35,9 +38,10 @@ export class ProjectController {
 	constructor(private readonly projectService: ProjectService) {}
 
 	@Get()
-	@Roles(UserRole.SuperAdmin, UserRole.Admin)
+	@Roles(UserRole.SuperAdmin, UserRole.Admin, UserRole.Manager, UserRole.User)
 	@UseGuards(AuthGuard(), RolesGuard, HasOrganizationAccessGuard)
 	public async getProjects(
+		@Req() req: Request & { user: User },
 		@Param('orgId') orgId: string,
 		@Query('spaceId') spaceId?: string,
 		@Query('limit') limit?: string,
@@ -52,11 +56,17 @@ export class ProjectController {
 			? 0
 			: Math.max(parsedOffset, 0);
 
+		const userContext: UserContext | undefined =
+			req.user?.id && req.user?.role
+				? { userId: req.user.id, role: req.user.role }
+				: undefined;
+
 		const projects = await this.projectService.findByOrganization(
 			orgId,
 			spaceId,
 			safeLimit,
 			safeOffset,
+			userContext,
 		);
 
 		return new ResponseEnvelope(
@@ -67,13 +77,23 @@ export class ProjectController {
 	}
 
 	@Get(':id')
-	@Roles(UserRole.SuperAdmin, UserRole.Admin)
+	@Roles(UserRole.SuperAdmin, UserRole.Admin, UserRole.Manager, UserRole.User)
 	@UseGuards(AuthGuard(), RolesGuard, HasOrganizationAccessGuard)
 	public async getProject(
+		@Req() req: Request & { user: User },
 		@Param('orgId') orgId: string,
 		@Param('id') id: string,
 	) {
-		const project = await this.projectService.findOne(id, orgId);
+		const userContext: UserContext | undefined =
+			req.user?.id && req.user?.role
+				? { userId: req.user.id, role: req.user.role }
+				: undefined;
+
+		const project = await this.projectService.findOne(
+			id,
+			orgId,
+			userContext,
+		);
 
 		if (!project) {
 			throw new HttpException(
@@ -93,9 +113,10 @@ export class ProjectController {
 	}
 
 	@Post()
-	@Roles(UserRole.SuperAdmin, UserRole.Admin)
+	@Roles(UserRole.SuperAdmin, UserRole.Admin, UserRole.Manager, UserRole.User)
 	@UseGuards(AuthGuard(), RolesGuard, HasOrganizationAccessGuard)
 	public async createProject(
+		@Req() req: Request & { user: User },
 		@Param('orgId') orgId: string,
 		@Body() createDto: ProjectCreateDto,
 	) {
@@ -107,6 +128,7 @@ export class ProjectController {
 				description: createDto.description,
 				spaceId: createDto.spaceId,
 				settings: createDto.settings ?? {},
+				createdBy: req.user?.id ?? undefined,
 			});
 		} catch (error) {
 			const message =
@@ -141,15 +163,21 @@ export class ProjectController {
 	}
 
 	@Put(':id')
-	@Roles(UserRole.SuperAdmin, UserRole.Admin)
+	@Roles(UserRole.SuperAdmin, UserRole.Admin, UserRole.Manager, UserRole.User)
 	@UseGuards(AuthGuard(), RolesGuard, HasOrganizationAccessGuard)
 	public async updateProject(
+		@Req() req: Request & { user: User },
 		@Param('orgId') orgId: string,
 		@Param('id') id: string,
 		@Body() updateDto: ProjectUpdateDto,
 	) {
+		const userContext: UserContext | undefined =
+			req.user?.id && req.user?.role
+				? { userId: req.user.id, role: req.user.role }
+				: undefined;
+
 		const project = await this.projectService
-			.update(id, orgId, { ...updateDto })
+			.update(id, orgId, { ...updateDto }, userContext)
 			.catch(() => null);
 
 		if (!project) {
@@ -170,14 +198,20 @@ export class ProjectController {
 	}
 
 	@Delete(':id')
-	@Roles(UserRole.SuperAdmin, UserRole.Admin)
+	@Roles(UserRole.SuperAdmin, UserRole.Admin, UserRole.Manager, UserRole.User)
 	@UseGuards(AuthGuard(), RolesGuard, HasOrganizationAccessGuard)
 	public async deleteProject(
+		@Req() req: Request & { user: User },
 		@Param('orgId') orgId: string,
 		@Param('id') id: string,
 	) {
+		const userContext: UserContext | undefined =
+			req.user?.id && req.user?.role
+				? { userId: req.user.id, role: req.user.role }
+				: undefined;
+
 		const project = await this.projectService
-			.softDelete(id, orgId)
+			.softDelete(id, orgId, userContext)
 			.catch(() => null);
 
 		if (!project) {

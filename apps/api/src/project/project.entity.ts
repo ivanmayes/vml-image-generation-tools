@@ -12,6 +12,7 @@ import {
 
 import { Organization } from '../organization/organization.entity';
 import { Space } from '../space/space.entity';
+import { User } from '../user/user.entity';
 import { GenerationRequest } from '../image-generation/entities/generation-request.entity';
 
 /**
@@ -22,6 +23,7 @@ import { GenerationRequest } from '../image-generation/entities/generation-reque
 @Index(['organizationId'])
 @Index(['organizationId', 'spaceId'])
 @Index(['organizationId', 'deletedAt'])
+@Index(['organizationId', 'createdBy'])
 export class Project {
 	[key: string]: unknown;
 
@@ -65,6 +67,13 @@ export class Project {
 	})
 	requests?: GenerationRequest[];
 
+	@Column('uuid', { nullable: true })
+	createdBy?: string;
+
+	@ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
+	@JoinColumn({ name: 'createdBy' })
+	creator?: User;
+
 	@CreateDateColumn({ type: 'timestamptz' })
 	createdAt!: Date;
 
@@ -79,6 +88,7 @@ export class Project {
 			name: this.name,
 			description: this.description,
 			settings: this.settings,
+			createdBy: this.createdBy,
 			createdAt: this.createdAt,
 		};
 	}

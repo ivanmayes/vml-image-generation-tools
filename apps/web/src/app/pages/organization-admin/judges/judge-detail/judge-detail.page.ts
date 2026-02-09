@@ -17,7 +17,13 @@ import { MessageService } from 'primeng/api';
 import { ConfirmDialogModule } from 'primeng/confirmdialog';
 
 import { AgentService } from '../../../../shared/services/agent.service';
-import { Agent, AgentDocument } from '../../../../shared/models/agent.model';
+import {
+	Agent,
+	AgentDocument,
+	AGENT_TYPES,
+	MODEL_TIERS,
+	THINKING_LEVELS,
+} from '../../../../shared/models/agent.model';
 import { environment } from '../../../../../environments/environment';
 import { PrimeNgModule } from '../../../../shared/primeng.module';
 import { ImageEvaluatorComponent } from '../../../../shared/components/image-evaluator/image-evaluator.component';
@@ -37,6 +43,8 @@ import { ImageEvaluatorComponent } from '../../../../shared/components/image-eva
 	],
 })
 export class JudgeDetailPage implements OnInit {
+	private readonly AGENTS_LIST_ROUTE = '/organization/admin/judges';
+
 	loading = signal(false);
 	saving = signal(false);
 	agent = signal<Agent | null>(null);
@@ -44,17 +52,41 @@ export class JudgeDetailPage implements OnInit {
 	documents = signal<AgentDocument[]>([]);
 	loadingDocuments = signal(false);
 	uploadingDocument = signal(false);
+	availableAgents = signal<Agent[]>([]);
+
+	// Enum options for dropdowns
+	readonly agentTypes = AGENT_TYPES;
+	readonly modelTiers = MODEL_TIERS;
+	readonly thinkingLevels = THINKING_LEVELS;
 
 	form = new FormGroup({
+		// General
 		name: new FormControl('', {
 			nonNullable: true,
 			validators: [Validators.required],
 		}),
+		description: new FormControl('', { nonNullable: true }),
+		canJudge: new FormControl(true, { nonNullable: true }),
+		status: new FormControl(true, { nonNullable: true }),
+		avatarUrl: new FormControl('', { nonNullable: true }),
+		// Prompts
 		systemPrompt: new FormControl('', {
 			nonNullable: true,
 			validators: [Validators.required],
 		}),
+		teamPrompt: new FormControl('', { nonNullable: true }),
 		evaluationCategories: new FormControl('', { nonNullable: true }),
+		aiSummary: new FormControl('', { nonNullable: true }),
+		// Model Configuration
+		agentType: new FormControl<string | null>(null),
+		modelTier: new FormControl<string | null>(null),
+		thinkingLevel: new FormControl<string | null>(null),
+		temperature: new FormControl<number | null>(null),
+		maxTokens: new FormControl<number | null>(null),
+		// Team & Capabilities
+		capabilities: new FormControl<string[]>([], { nonNullable: true }),
+		teamAgentIds: new FormControl<string[]>([], { nonNullable: true }),
+		// Weights & RAG
 		templateId: new FormControl('', { nonNullable: true }),
 		optimizationWeight: new FormControl(50, { nonNullable: true }),
 		scoringWeight: new FormControl(50, { nonNullable: true }),
@@ -70,7 +102,9 @@ export class JudgeDetailPage implements OnInit {
 		private readonly messageService: MessageService,
 		private readonly router: Router,
 		private readonly route: ActivatedRoute,
-	) {}
+	) {
+		this.form.get('aiSummary')?.disable();
+	}
 
 	ngOnInit(): void {
 		const idParam = this.route.snapshot.paramMap.get('id');
@@ -81,6 +115,22 @@ export class JudgeDetailPage implements OnInit {
 			this.agentId = idParam;
 			this.loadAgent(idParam);
 		}
+
+		this.loadAvailableAgents();
+	}
+
+	private loadAvailableAgents(): void {
+		this.agentService.getAgents(this.organizationId).subscribe({
+			next: (response) => {
+				const agents = (response.data || []).filter(
+					(a) => a.id !== this.agentId,
+				);
+				this.availableAgents.set(agents);
+			},
+			error: (error) => {
+				console.error('Error loading available agents:', error);
+			},
+		});
 	}
 
 	private loadAgent(agentId: string): void {
@@ -93,8 +143,21 @@ export class JudgeDetailPage implements OnInit {
 				this.agent.set(agentData);
 				this.form.patchValue({
 					name: agentData.name || '',
+					description: agentData.description || '',
+					canJudge: agentData.canJudge !== false,
+					status: agentData.status !== 'INACTIVE',
+					avatarUrl: agentData.avatarUrl || '',
 					systemPrompt: agentData.systemPrompt || '',
+					teamPrompt: agentData.teamPrompt || '',
 					evaluationCategories: agentData.evaluationCategories || '',
+					aiSummary: agentData.aiSummary || '',
+					agentType: agentData.agentType || null,
+					modelTier: agentData.modelTier || null,
+					thinkingLevel: agentData.thinkingLevel || null,
+					temperature: agentData.temperature ?? null,
+					maxTokens: agentData.maxTokens ?? null,
+					capabilities: agentData.capabilities || [],
+					teamAgentIds: agentData.teamAgentIds || [],
 					templateId: agentData.templateId || '',
 					optimizationWeight: agentData.optimizationWeight ?? 50,
 					scoringWeight: agentData.scoringWeight ?? 50,
@@ -110,7 +173,7 @@ export class JudgeDetailPage implements OnInit {
 				this.messageService.add({
 					severity: 'error',
 					summary: 'Error',
-					detail: 'Failed to load judge',
+					detail: 'Failed to load agent',
 					life: 3000,
 				});
 				this.loading.set(false);
@@ -127,7 +190,8 @@ export class JudgeDetailPage implements OnInit {
 		this.saving.set(true);
 		const formValue = this.form.getRawValue();
 
-		const dto = {
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const dto: any = {
 			name: formValue.name,
 			systemPrompt: formValue.systemPrompt,
 			evaluationCategories: formValue.evaluationCategories || undefined,
@@ -138,6 +202,22 @@ export class JudgeDetailPage implements OnInit {
 				topK: formValue.ragTopK,
 				similarityThreshold: formValue.ragSimilarityThreshold,
 			},
+			description: formValue.description || undefined,
+			canJudge: formValue.canJudge,
+			status: formValue.status ? 'ACTIVE' : 'INACTIVE',
+			agentType: formValue.agentType || undefined,
+			modelTier: formValue.modelTier || undefined,
+			thinkingLevel: formValue.thinkingLevel || undefined,
+			teamPrompt: formValue.teamPrompt || undefined,
+			capabilities: formValue.capabilities.length
+				? formValue.capabilities
+				: undefined,
+			teamAgentIds: formValue.teamAgentIds.length
+				? formValue.teamAgentIds
+				: undefined,
+			temperature: formValue.temperature ?? undefined,
+			maxTokens: formValue.maxTokens ?? undefined,
+			avatarUrl: formValue.avatarUrl || undefined,
 		};
 
 		if (this.isCreateMode()) {
@@ -146,18 +226,18 @@ export class JudgeDetailPage implements OnInit {
 					this.messageService.add({
 						severity: 'success',
 						summary: 'Success',
-						detail: 'Judge created successfully',
+						detail: 'Agent created successfully',
 						life: 3000,
 					});
 					this.saving.set(false);
-					this.router.navigate(['/organization/admin/judges']);
+					this.router.navigate([this.AGENTS_LIST_ROUTE]);
 				},
 				error: (error) => {
 					console.error('Error creating agent:', error);
 					this.messageService.add({
 						severity: 'error',
 						summary: 'Error',
-						detail: 'Failed to create judge',
+						detail: 'Failed to create agent',
 						life: 3000,
 					});
 					this.saving.set(false);
@@ -171,18 +251,18 @@ export class JudgeDetailPage implements OnInit {
 						this.messageService.add({
 							severity: 'success',
 							summary: 'Success',
-							detail: 'Judge updated successfully',
+							detail: 'Agent updated successfully',
 							life: 3000,
 						});
 						this.saving.set(false);
-						this.router.navigate(['/organization/admin/judges']);
+						this.router.navigate([this.AGENTS_LIST_ROUTE]);
 					},
 					error: (error) => {
 						console.error('Error updating agent:', error);
 						this.messageService.add({
 							severity: 'error',
 							summary: 'Error',
-							detail: 'Failed to update judge',
+							detail: 'Failed to update agent',
 							life: 3000,
 						});
 						this.saving.set(false);
@@ -192,11 +272,11 @@ export class JudgeDetailPage implements OnInit {
 	}
 
 	cancel(): void {
-		this.router.navigate(['/organization/admin/judges']);
+		this.router.navigate([this.AGENTS_LIST_ROUTE]);
 	}
 
 	goBack(): void {
-		this.router.navigate(['/organization/admin/judges']);
+		this.router.navigate([this.AGENTS_LIST_ROUTE]);
 	}
 
 	loadDocuments(agentId: string): void {
@@ -214,7 +294,7 @@ export class JudgeDetailPage implements OnInit {
 		});
 	}
 
-	onUploadDocument(event: any): void {
+	onUploadDocument(event: { files: File[] }): void {
 		const file = event.files[0];
 		if (!file || !this.agentId) return;
 

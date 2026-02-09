@@ -37,6 +37,7 @@ import { UserRole } from '../../user/user-role.enum';
 import { User } from '../../user/user.entity';
 import { AuthService } from '../../user/auth/auth.service';
 import { ResponseEnvelope, ResponseStatus } from '../../_core/models';
+import { UserContext } from '../../_core/interfaces/user-context.interface';
 import { AgentService } from '../../agent/agent.service';
 import { JobQueueService } from '../jobs/job-queue.service';
 import {
@@ -82,9 +83,10 @@ export class GenerationRequestController {
 	@ApiQuery({ name: 'limit', required: false, type: 'number' })
 	@ApiQuery({ name: 'offset', required: false, type: 'number' })
 	@ApiResponse({ status: 200, description: 'List of generation requests' })
-	@Roles(UserRole.SuperAdmin, UserRole.Admin)
+	@Roles(UserRole.SuperAdmin, UserRole.Admin, UserRole.Manager, UserRole.User)
 	@UseGuards(AuthGuard(), RolesGuard, HasOrganizationAccessGuard)
 	public async getRequests(
+		@Req() req: Request & { user: User },
 		@Param('orgId', ParseUUIDPipe) orgId: string,
 		@Query('status') status?: GenerationRequestStatus,
 		@Query('projectId') projectId?: string,
@@ -102,6 +104,11 @@ export class GenerationRequestController {
 			? 0
 			: Math.max(parsedOffset, 0);
 
+		const userContext: UserContext | undefined =
+			req.user?.id && req.user?.role
+				? { userId: req.user.id, role: req.user.role }
+				: undefined;
+
 		const requests = await this.requestService.findByOrganization(
 			orgId,
 			status,
@@ -109,6 +116,7 @@ export class GenerationRequestController {
 			safeOffset,
 			projectId,
 			spaceId,
+			userContext,
 		);
 
 		// Batch-fetch final image URLs for card thumbnails
@@ -140,9 +148,10 @@ export class GenerationRequestController {
 	@ApiQuery({ name: 'limit', required: false, type: 'number' })
 	@ApiQuery({ name: 'offset', required: false, type: 'number' })
 	@ApiResponse({ status: 200, description: 'List of generated images' })
-	@Roles(UserRole.SuperAdmin, UserRole.Admin)
+	@Roles(UserRole.SuperAdmin, UserRole.Admin, UserRole.Manager, UserRole.User)
 	@UseGuards(AuthGuard(), RolesGuard, HasOrganizationAccessGuard)
 	public async getOrganizationImages(
+		@Req() req: Request & { user: User },
 		@Param('orgId', ParseUUIDPipe) orgId: string,
 		@Query('limit') limit?: string,
 		@Query('offset') offset?: string,
@@ -156,10 +165,16 @@ export class GenerationRequestController {
 			? 0
 			: Math.max(parsedOffset, 0);
 
+		const userContext: UserContext | undefined =
+			req.user?.id && req.user?.role
+				? { userId: req.user.id, role: req.user.role }
+				: undefined;
+
 		const images = await this.requestService.findImagesByOrganization(
 			orgId,
 			safeLimit,
 			safeOffset,
+			userContext,
 		);
 
 		return new ResponseEnvelope(
@@ -174,7 +189,7 @@ export class GenerationRequestController {
 	@ApiParam({ name: 'orgId', type: 'string', format: 'uuid' })
 	@ApiResponse({ status: 201, description: 'Image uploaded successfully' })
 	@ApiResponse({ status: 400, description: 'Invalid file type or no file' })
-	@Roles(UserRole.SuperAdmin, UserRole.Admin)
+	@Roles(UserRole.SuperAdmin, UserRole.Admin, UserRole.Manager, UserRole.User)
 	@UseGuards(AuthGuard(), RolesGuard, HasOrganizationAccessGuard)
 	@UseInterceptors(FileInterceptor('file'))
 	public async uploadComplianceImage(
@@ -224,13 +239,23 @@ export class GenerationRequestController {
 	@ApiParam({ name: 'id', type: 'string', format: 'uuid' })
 	@ApiResponse({ status: 200, description: 'Generation request details' })
 	@ApiResponse({ status: 404, description: 'Request not found' })
-	@Roles(UserRole.SuperAdmin, UserRole.Admin)
+	@Roles(UserRole.SuperAdmin, UserRole.Admin, UserRole.Manager, UserRole.User)
 	@UseGuards(AuthGuard(), RolesGuard, HasOrganizationAccessGuard)
 	public async getRequest(
+		@Req() req: Request & { user: User },
 		@Param('orgId', ParseUUIDPipe) orgId: string,
 		@Param('id', ParseUUIDPipe) id: string,
 	) {
-		const request = await this.requestService.getWithImages(id, orgId);
+		const userContext: UserContext | undefined =
+			req.user?.id && req.user?.role
+				? { userId: req.user.id, role: req.user.role }
+				: undefined;
+
+		const request = await this.requestService.getWithImages(
+			id,
+			orgId,
+			userContext,
+		);
 
 		if (!request) {
 			throw new HttpException(
@@ -275,10 +300,11 @@ export class GenerationRequestController {
 		}
 
 		// Validate JWT and verify user has access to this organization
+		let sseUser: User | null = null;
 		try {
 			const payload = this.jwtService.verify(token);
-			const user = await this.authService.validateUser(token, payload);
-			if (!user || user.organizationId !== orgId) {
+			sseUser = await this.authService.validateUser(token, payload);
+			if (!sseUser || sseUser.organizationId !== orgId) {
 				throw new Error('Organization access denied');
 			}
 		} catch {
@@ -291,9 +317,17 @@ export class GenerationRequestController {
 			);
 		}
 
-		const request = await this.requestService.findOne({
-			where: { id, organizationId: orgId },
-		});
+		// Build user context for ownership scoping
+		const sseUserContext: UserContext | undefined =
+			sseUser?.id && sseUser?.role
+				? { userId: sseUser.id, role: sseUser.role }
+				: undefined;
+
+		const request = await this.requestService.findOneScoped(
+			id,
+			orgId,
+			sseUserContext,
+		);
 
 		if (!request) {
 			throw new HttpException(
@@ -338,7 +372,7 @@ export class GenerationRequestController {
 	@ApiResponse({ status: 201, description: 'Generation request created' })
 	@ApiResponse({ status: 400, description: 'Invalid judge IDs' })
 	@ApiResponse({ status: 403, description: 'Organization access denied' })
-	@Roles(UserRole.SuperAdmin, UserRole.Admin)
+	@Roles(UserRole.SuperAdmin, UserRole.Admin, UserRole.Manager, UserRole.User)
 	@UseGuards(AuthGuard(), RolesGuard, HasOrganizationAccessGuard)
 	public async createRequest(
 		@Req() req: Request & { user: User },
@@ -371,11 +405,24 @@ export class GenerationRequestController {
 			);
 		}
 
+		const nonJudgeAgents = agents.filter((a) => !a.canJudge);
+		if (nonJudgeAgents.length > 0) {
+			const names = nonJudgeAgents.map((a) => a.name).join(', ');
+			throw new HttpException(
+				new ResponseEnvelope(
+					ResponseStatus.Failure,
+					`The following agents are not configured as judges: ${names}`,
+				),
+				HttpStatus.BAD_REQUEST,
+			);
+		}
+
 		const request = await this.requestService
 			.create({
 				organizationId: orgId,
 				projectId: createDto.projectId,
 				spaceId: createDto.spaceId,
+				createdBy: req.user?.id ?? undefined,
 				brief: createDto.brief,
 				initialPrompt: createDto.initialPrompt,
 				referenceImageUrls: createDto.referenceImageUrls,
@@ -439,7 +486,7 @@ export class GenerationRequestController {
 	@ApiResponse({ status: 200, description: 'Request cancelled' })
 	@ApiResponse({ status: 400, description: 'Request cannot be cancelled' })
 	@ApiResponse({ status: 404, description: 'Request not found' })
-	@Roles(UserRole.SuperAdmin, UserRole.Admin)
+	@Roles(UserRole.SuperAdmin, UserRole.Admin, UserRole.Manager, UserRole.User)
 	@UseGuards(AuthGuard(), RolesGuard, HasOrganizationAccessGuard)
 	public async cancelRequest(
 		@Req() req: Request & { user: User },
@@ -456,9 +503,16 @@ export class GenerationRequestController {
 			);
 		}
 
-		const request = await this.requestService.findOne({
-			where: { id, organizationId: orgId },
-		});
+		const userContext: UserContext | undefined =
+			req.user?.id && req.user?.role
+				? { userId: req.user.id, role: req.user.role }
+				: undefined;
+
+		const request = await this.requestService.findOneScoped(
+			id,
+			orgId,
+			userContext,
+		);
 
 		if (!request) {
 			throw new HttpException(
@@ -506,15 +560,23 @@ export class GenerationRequestController {
 		description: 'Request is not in pending state',
 	})
 	@ApiResponse({ status: 404, description: 'Request not found' })
-	@Roles(UserRole.SuperAdmin, UserRole.Admin)
+	@Roles(UserRole.SuperAdmin, UserRole.Admin, UserRole.Manager, UserRole.User)
 	@UseGuards(AuthGuard(), RolesGuard, HasOrganizationAccessGuard)
 	public async triggerRequest(
+		@Req() req: Request & { user: User },
 		@Param('orgId', ParseUUIDPipe) orgId: string,
 		@Param('id', ParseUUIDPipe) id: string,
 	) {
-		const request = await this.requestService.findOne({
-			where: { id, organizationId: orgId },
-		});
+		const userContext: UserContext | undefined =
+			req.user?.id && req.user?.role
+				? { userId: req.user.id, role: req.user.role }
+				: undefined;
+
+		const request = await this.requestService.findOneScoped(
+			id,
+			orgId,
+			userContext,
+		);
 
 		if (!request) {
 			throw new HttpException(
@@ -560,16 +622,24 @@ export class GenerationRequestController {
 	})
 	@ApiResponse({ status: 400, description: 'Request cannot be continued' })
 	@ApiResponse({ status: 404, description: 'Request not found' })
-	@Roles(UserRole.SuperAdmin, UserRole.Admin)
+	@Roles(UserRole.SuperAdmin, UserRole.Admin, UserRole.Manager, UserRole.User)
 	@UseGuards(AuthGuard(), RolesGuard, HasOrganizationAccessGuard)
 	public async continueRequest(
+		@Req() req: Request & { user: User },
 		@Param('orgId', ParseUUIDPipe) orgId: string,
 		@Param('id', ParseUUIDPipe) id: string,
 		@Body() continueDto: RequestContinueDto,
 	) {
-		const request = await this.requestService.findOne({
-			where: { id, organizationId: orgId },
-		});
+		const userContext: UserContext | undefined =
+			req.user?.id && req.user?.role
+				? { userId: req.user.id, role: req.user.role }
+				: undefined;
+
+		const request = await this.requestService.findOneScoped(
+			id,
+			orgId,
+			userContext,
+		);
 
 		if (!request) {
 			throw new HttpException(
@@ -597,6 +667,25 @@ export class GenerationRequestController {
 			);
 		}
 
+		// Validate new judge IDs if provided
+		if (continueDto.judgeIds?.length) {
+			const judges = await this.agentService.findByIds(
+				continueDto.judgeIds,
+				orgId,
+			);
+			const nonJudges = judges.filter((a) => !a.canJudge);
+			if (nonJudges.length > 0) {
+				const names = nonJudges.map((a) => a.name).join(', ');
+				throw new HttpException(
+					new ResponseEnvelope(
+						ResponseStatus.Failure,
+						`The following agents are not configured as judges: ${names}`,
+					),
+					HttpStatus.BAD_REQUEST,
+				);
+			}
+		}
+
 		// Prepare request for continuation
 		const updated = await this.requestService.prepareForContinuation(
 			id,
@@ -622,15 +711,23 @@ export class GenerationRequestController {
 	@ApiParam({ name: 'id', type: 'string', format: 'uuid' })
 	@ApiResponse({ status: 200, description: 'List of generated images' })
 	@ApiResponse({ status: 404, description: 'Request not found' })
-	@Roles(UserRole.SuperAdmin, UserRole.Admin)
+	@Roles(UserRole.SuperAdmin, UserRole.Admin, UserRole.Manager, UserRole.User)
 	@UseGuards(AuthGuard(), RolesGuard, HasOrganizationAccessGuard)
 	public async getRequestImages(
+		@Req() req: Request & { user: User },
 		@Param('orgId', ParseUUIDPipe) orgId: string,
 		@Param('id', ParseUUIDPipe) id: string,
 	) {
-		const request = await this.requestService.findOne({
-			where: { id, organizationId: orgId },
-		});
+		const userContext: UserContext | undefined =
+			req.user?.id && req.user?.role
+				? { userId: req.user.id, role: req.user.role }
+				: undefined;
+
+		const request = await this.requestService.findOneScoped(
+			id,
+			orgId,
+			userContext,
+		);
 
 		if (!request) {
 			throw new HttpException(

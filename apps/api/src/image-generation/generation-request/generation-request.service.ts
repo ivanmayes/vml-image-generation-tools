@@ -1,9 +1,19 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, FindOneOptions, FindManyOptions, In } from 'typeorm';
+import {
+	Repository,
+	FindOneOptions,
+	FindManyOptions,
+	FindOptionsWhere,
+	In,
+} from 'typeorm';
 import * as AWS from 'aws-sdk';
 import { v4 as uuid } from 'uuid';
 
+import {
+	UserContext,
+	isAdminRole,
+} from '../../_core/interfaces/user-context.interface';
 import {
 	GenerationRequest,
 	GenerationRequestStatus,
@@ -51,6 +61,7 @@ export class GenerationRequestService {
 		offset: number = 0,
 		projectId?: string,
 		spaceId?: string,
+		userContext?: UserContext,
 	) {
 		const qb = this.requestRepository
 			.createQueryBuilder('request')
@@ -73,14 +84,53 @@ export class GenerationRequestService {
 			qb.andWhere('request.spaceId = :spaceId', { spaceId });
 		}
 
+		if (userContext && !isAdminRole(userContext.role)) {
+			qb.andWhere('request.createdBy = :userId', {
+				userId: userContext.userId,
+			});
+		}
+
 		return qb.getMany();
 	}
 
-	public async getWithImages(id: string, organizationId: string) {
+	public async getWithImages(
+		id: string,
+		organizationId: string,
+		userContext?: UserContext,
+	) {
+		const where: FindOptionsWhere<GenerationRequest> = {
+			id,
+			organizationId,
+		};
+
+		if (userContext && !isAdminRole(userContext.role)) {
+			where.createdBy = userContext.userId;
+		}
+
 		return this.requestRepository.findOne({
-			where: { id, organizationId },
+			where,
 			relations: ['images'],
 		});
+	}
+
+	/**
+	 * Find a single request scoped by optional user ownership
+	 */
+	public async findOneScoped(
+		id: string,
+		organizationId: string,
+		userContext?: UserContext,
+	) {
+		const where: FindOptionsWhere<GenerationRequest> = {
+			id,
+			organizationId,
+		};
+
+		if (userContext && !isAdminRole(userContext.role)) {
+			where.createdBy = userContext.userId;
+		}
+
+		return this.requestRepository.findOne({ where });
 	}
 
 	public async updateStatus(
@@ -224,8 +274,9 @@ export class GenerationRequestService {
 		organizationId: string,
 		limit: number = 50,
 		offset: number = 0,
+		userContext?: UserContext,
 	) {
-		return this.imageRepository
+		const qb = this.imageRepository
 			.createQueryBuilder('image')
 			.innerJoin('image.request', 'request')
 			.where('request.organizationId = :organizationId', {
@@ -233,8 +284,15 @@ export class GenerationRequestService {
 			})
 			.orderBy('image.createdAt', 'DESC')
 			.take(limit)
-			.skip(offset)
-			.getMany();
+			.skip(offset);
+
+		if (userContext && !isAdminRole(userContext.role)) {
+			qb.andWhere('request.createdBy = :userId', {
+				userId: userContext.userId,
+			});
+		}
+
+		return qb.getMany();
 	}
 
 	/**
