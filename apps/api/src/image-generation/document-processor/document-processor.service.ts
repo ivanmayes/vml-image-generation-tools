@@ -1,6 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { v4 as uuidv4 } from 'uuid';
-import { PDFParse } from 'pdf-parse';
 import * as mammoth from 'mammoth';
 
 import { AIService } from '../../ai/ai.service';
@@ -120,6 +119,7 @@ export class DocumentProcessorService {
 	 * Parse PDF document using pdf-parse
 	 */
 	private async parsePdf(buffer: Buffer): Promise<ParsedDocument> {
+		const { PDFParse } = await import('pdf-parse');
 		const pdf = new PDFParse({ data: buffer });
 		try {
 			const info = await pdf.getInfo();

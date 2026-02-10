@@ -113,6 +113,7 @@ export class EvaluateController {
 					loadedAgents,
 					image,
 					body.brief,
+					orgId,
 				),
 			),
 		);

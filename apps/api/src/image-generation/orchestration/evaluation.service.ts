@@ -9,6 +9,7 @@ import {
 import { Agent } from '../../agent/agent.entity';
 import { AgentEvaluationSnapshot, GeneratedImage } from '../entities';
 import { DocumentProcessorService } from '../document-processor/document-processor.service';
+import { DEFAULT_JUDGE_TEMPLATE } from '../prompts/default-judge-template';
 
 export interface TopIssue {
 	problem: string;
@@ -58,9 +59,18 @@ export class EvaluationService {
 		agent: Agent,
 		image: GeneratedImage,
 		brief: string,
+		organizationId: string,
 		iterationContext?: IterationContext,
 	): Promise<EvaluationResult> {
 		const startTime = Date.now();
+
+		// P0 Security: Validate agent belongs to the request's organization
+		if (agent.organizationId !== organizationId) {
+			const error = `Agent ${agent.id} does not belong to organization ${organizationId}`;
+			this.logger.error(`[EVAL_SECURITY_ERROR] ${error}`);
+			throw new Error(error);
+		}
+
 		this.logger.log(
 			`[EVAL_START] Agent: ${agent.name} | ImageID: ${image.id} | Weight: ${agent.scoringWeight}`,
 		);
@@ -80,28 +90,38 @@ export class EvaluationService {
 					`Threshold: ${ragConfig.similarityThreshold ?? 0.7}`,
 			);
 
-			const ragStartTime = Date.now();
-			const chunks = await this.documentProcessorService.searchChunks(
-				agent.id,
-				`${brief} ${image.promptUsed}`,
-				ragConfig.topK ?? 5,
-				ragConfig.similarityThreshold ?? 0.7,
-			);
+			// P2 Issue #6: Wrap RAG search in try/catch to prevent crashes
+			try {
+				const ragStartTime = Date.now();
+				const chunks = await this.documentProcessorService.searchChunks(
+					agent.id,
+					`${brief} ${image.promptUsed}`,
+					ragConfig.topK ?? 5,
+					ragConfig.similarityThreshold ?? 0.7,
+				);
 
-			if (chunks.length > 0) {
-				ragContext =
-					'\n\nReference Guidelines:\n' +
-					chunks.map((c) => c.chunk.content).join('\n\n');
-				this.logger.debug(
-					`[EVAL_RAG_FOUND] Agent: ${agent.name} | ` +
-						`ChunksFound: ${chunks.length} | ` +
-						`ContextLength: ${ragContext.length} chars | ` +
-						`Time: ${Date.now() - ragStartTime}ms`,
+				if (chunks.length > 0) {
+					ragContext =
+						'\n\nReference Guidelines:\n' +
+						chunks.map((c) => c.chunk.content).join('\n\n');
+					this.logger.debug(
+						`[EVAL_RAG_FOUND] Agent: ${agent.name} | ` +
+							`ChunksFound: ${chunks.length} | ` +
+							`ContextLength: ${ragContext.length} chars | ` +
+							`Time: ${Date.now() - ragStartTime}ms`,
+					);
+				} else {
+					this.logger.debug(
+						`[EVAL_RAG_EMPTY] Agent: ${agent.name} - No relevant chunks found`,
+					);
+				}
+			} catch (error) {
+				const message =
+					error instanceof Error ? error.message : 'Unknown error';
+				this.logger.warn(
+					`[EVAL_RAG_ERROR] Agent: ${agent.name} | RAG search failed: ${message} | Continuing with empty context`,
 				);
-			} else {
-				this.logger.debug(
-					`[EVAL_RAG_EMPTY] Agent: ${agent.name} - No relevant chunks found`,
-				);
+				ragContext = '';
 			}
 		}
 
@@ -119,7 +139,10 @@ export class EvaluationService {
 
 		// Get evaluation from LLM
 		const messages: AIMessage[] = [
-			{ role: AIMessageRole.System, content: agent.systemPrompt },
+			{
+				role: AIMessageRole.System,
+				content: this.composeJudgeSystemMessage(agent),
+			},
 			{
 				role: AIMessageRole.User,
 				content: [
@@ -132,12 +155,15 @@ export class EvaluationService {
 			},
 		];
 
+		// P2 Issue #7: Use agent's modelTier instead of hardcoded model
+		const model = this.getModelFromTier(agent.modelTier);
+
 		const llmStartTime = Date.now();
 		const response = await this.aiService.generateText({
 			provider: AIProvider.Google,
-			model: 'gemini-2.0-flash',
+			model,
 			messages,
-			temperature: 0.3,
+			temperature: agent.temperature ?? 0.3,
 		});
 		const llmTime = Date.now() - llmStartTime;
 
@@ -160,8 +186,10 @@ export class EvaluationService {
 			);
 		}
 
+		// P1 Issue #5: Add null check for feedback before substring
+		const feedbackPreview = (evaluation.feedback || '').substring(0, 100);
 		this.logger.debug(
-			`[EVAL_FEEDBACK] Agent: ${agent.name} | Feedback: "${evaluation.feedback.substring(0, 100)}..."`,
+			`[EVAL_FEEDBACK] Agent: ${agent.name} | Feedback: "${feedbackPreview}..."`,
 		);
 
 		return {
@@ -181,11 +209,14 @@ export class EvaluationService {
 
 	/**
 	 * Evaluate an image with all judges
+	 * @precondition All agents must have canJudge=true (validated at runtime)
+	 * @precondition All agents must belong to the same organization (validated at runtime)
 	 */
 	public async evaluateWithAllJudges(
 		agents: Agent[],
 		image: GeneratedImage,
 		brief: string,
+		organizationId: string,
 		iterationContext?: IterationContext,
 	): Promise<EvaluationResult[]> {
 		const startTime = Date.now();
@@ -193,9 +224,37 @@ export class EvaluationService {
 			`[EVAL_ALL_JUDGES_START] ImageID: ${image.id} | JudgeCount: ${agents.length}`,
 		);
 
+		// P0 Security: Validate all agents belong to the request's organization
+		const invalidAgents = agents.filter(
+			(a) => a.organizationId !== organizationId,
+		);
+		if (invalidAgents.length > 0) {
+			const error = `${invalidAgents.length} agent(s) do not belong to organization ${organizationId}`;
+			this.logger.error(`[EVAL_SECURITY_ERROR] ${error}`);
+			throw new Error(error);
+		}
+
+		// Defensive: assert all agents have canJudge enabled (Issue #6)
+		const nonJudges = agents.filter((a) => !a.canJudge);
+		if (nonJudges.length > 0) {
+			const names = nonJudges.map((a) => a.name).join(', ');
+			this.logger.error(
+				`[EVAL_CANJUDGE_ERROR] Non-judge agents passed to evaluateWithAllJudges: ${names}`,
+			);
+			throw new Error(
+				`Cannot evaluate with non-judge agents (canJudge=false): ${names}`,
+			);
+		}
+
 		const evaluations = await Promise.all(
 			agents.map((agent) =>
-				this.evaluateImage(agent, image, brief, iterationContext),
+				this.evaluateImage(
+					agent,
+					image,
+					brief,
+					organizationId,
+					iterationContext,
+				),
 			),
 		);
 
@@ -268,6 +327,27 @@ export class EvaluationService {
 	}
 
 	/**
+	 * Compose the system message for a judge agent by combining
+	 * the agent's personality/role prompt with the judge output format.
+	 * Uses agent.judgePrompt if set, otherwise falls back to DEFAULT_JUDGE_TEMPLATE.
+	 */
+	private composeJudgeSystemMessage(agent: Agent): string {
+		// Use || so empty-string judgePrompt also falls back to the default template
+		const judgeFormat = agent.judgePrompt || DEFAULT_JUDGE_TEMPLATE;
+
+		// P1 Issue #3: Validate judgePrompt contains OUTPUT FORMAT instructions
+		// If custom judgePrompt is set but doesn't contain critical sections, append fallback
+		if (agent.judgePrompt && !agent.judgePrompt.includes('OUTPUT FORMAT')) {
+			this.logger.warn(
+				`[EVAL_JUDGE_PROMPT_WARNING] Agent ${agent.name} has custom judgePrompt without OUTPUT FORMAT section - appending default format`,
+			);
+			return `${agent.systemPrompt}\n\n---\n\n${agent.judgePrompt}\n\n---\n\n${DEFAULT_JUDGE_TEMPLATE}`;
+		}
+
+		return `${agent.systemPrompt}\n\n---\n\n${judgeFormat}`;
+	}
+
+	/**
 	 * Build the evaluation prompt
 	 */
 	private buildEvaluationPrompt(
@@ -313,38 +393,6 @@ export class EvaluationService {
 			parts.push('### Evaluation Categories');
 			parts.push(agent.evaluationCategories);
 			parts.push('');
-		}
-
-		// Note: Response format is defined in the agent's system prompt
-		// which may include TOP_ISSUE, checklist, whatWorked etc.
-		// Only add a basic reminder here if the agent doesn't specify a format
-		if (!agent.systemPrompt?.includes('OUTPUT FORMAT')) {
-			parts.push('### Response Format');
-			parts.push('Provide your evaluation in the following JSON format:');
-			parts.push('```json');
-			parts.push('{');
-			parts.push('  "score": <number 0-100>,');
-			parts.push('  "TOP_ISSUE": {');
-			parts.push('    "problem": "<single most important issue>",');
-			parts.push('    "severity": "critical|major|moderate|minor",');
-			parts.push('    "fix": "<specific fix instruction>"');
-			parts.push('  },');
-			parts.push(
-				'  "categoryScores": { "<category>": <number 0-100>, ... },',
-			);
-			parts.push('  "whatWorked": ["<positive aspect>", ...],');
-			parts.push(
-				'  "promptInstructions": ["<exact text snippet or instruction to include in next prompt>", ...],',
-			);
-			parts.push('  "feedback": "<detailed feedback for improvement>"');
-			parts.push('}');
-			parts.push('```');
-			parts.push('');
-			parts.push(
-				'The `promptInstructions` field should contain exact text snippets or specific instructions ' +
-					'that should appear verbatim in the next generation prompt. For example: ' +
-					'"Add rim lighting at 5600K from behind the subject" or "The bottle label must read RESERVE 18 in gold serif font".',
-			);
 		}
 
 		return parts.join('\n');
@@ -415,9 +463,13 @@ export class EvaluationService {
 						.map((i: string) => i.trim()) as string[])
 				: undefined;
 
+			// Parse categoryScores (handle snake_case variant like other fields)
+			const categoryScores =
+				parsed.categoryScores || parsed.category_scores;
+
 			return {
 				score: Math.min(100, Math.max(0, score)),
-				categoryScores: parsed.categoryScores,
+				categoryScores,
 				feedback: parsed.feedback || 'No feedback provided',
 				topIssue,
 				whatWorked: Array.isArray(whatWorked) ? whatWorked : undefined,
@@ -425,13 +477,20 @@ export class EvaluationService {
 				promptInstructions,
 			};
 		} catch (error) {
-			this.logger.warn(`Failed to parse evaluation response: ${content}`);
+			// P1 Issue #4: Replace silent fallback with explicit error handling
+			const message =
+				error instanceof Error ? error.message : 'Unknown error';
+			this.logger.error(
+				`[EVAL_PARSE_FAILED] Failed to parse evaluation response: ${message} | ` +
+					`Response: ${content?.substring(0, 200)}...`,
+			);
 
-			// Return default values if parsing fails
-			return {
-				score: 50,
-				feedback: content || 'Evaluation parsing failed',
-			};
+			// Throw error instead of silent fallback to surface parsing issues
+			throw new Error(
+				`Evaluation response parsing failed: ${message}. ` +
+					`LLM may not be following OUTPUT FORMAT instructions. ` +
+					`Response preview: ${content?.substring(0, 100)}...`,
+			);
 		}
 	}
 
@@ -454,5 +513,20 @@ export class EvaluationService {
 			checklist: e.checklist,
 			promptInstructions: e.promptInstructions,
 		}));
+	}
+
+	/**
+	 * P2 Issue #7: Map agent's modelTier to actual Gemini model name
+	 */
+	private getModelFromTier(modelTier?: string): string {
+		switch (modelTier) {
+			case 'PRO':
+				return 'gemini-2.0-pro';
+			case 'FLASH':
+				return 'gemini-2.0-flash';
+			default:
+				// Default to flash for performance/cost balance
+				return 'gemini-2.0-flash';
+		}
 	}
 }

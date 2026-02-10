@@ -245,6 +245,45 @@ export class DebugOutputService {
 		}
 	}
 
+	// ─── Composition Debug Output ─────────────────────────────────────────────
+
+	/**
+	 * Get (and create) a debug directory for a composition version.
+	 * Returns null if debug output is disabled.
+	 */
+	public getCompositionDir(versionId: string): string | null {
+		if (!this.enabled) return null;
+
+		const dir = path.join(this.outputDir, 'compositions', versionId);
+		this.ensureDirectory(dir);
+		return dir;
+	}
+
+	/**
+	 * Save a raw file (Buffer or string) into a debug directory.
+	 */
+	public saveFile(
+		dir: string,
+		filename: string,
+		data: Buffer | string,
+	): void {
+		if (!this.enabled) return;
+
+		try {
+			const filePath = path.join(dir, filename);
+			fs.writeFileSync(filePath, data);
+			this.logger.debug(
+				`[DEBUG_OUTPUT] Saved: ${filename} (${typeof data === 'string' ? data.length + ' chars' : data.length + ' bytes'})`,
+			);
+		} catch (error) {
+			this.logger.error(
+				`[DEBUG_OUTPUT] Failed to save ${filename}: ${error}`,
+			);
+		}
+	}
+
+	// ─── Private Helpers ──────────────────────────────────────────────────────
+
 	/**
 	 * Get the session directory for a request.
 	 * Caches the path so it stays consistent even if a run crosses midnight.

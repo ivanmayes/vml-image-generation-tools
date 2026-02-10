@@ -104,9 +104,31 @@ export class OrchestrationService {
 			throw new Error('Some judge agents not found');
 		}
 
+		// Filter out agents that have had canJudge toggled off since the request was created
+		const nonJudges = agents.filter((a) => !a.canJudge);
+		if (nonJudges.length > 0) {
+			this.logger.warn(
+				`[AGENTS_CANJUDGE_FILTER] RequestID: ${requestId} - ` +
+					`Filtering out ${nonJudges.length} agent(s) with canJudge=false: ` +
+					nonJudges.map((a) => a.name).join(', '),
+			);
+		}
+		const judgeAgents = agents.filter((a) => a.canJudge);
+		if (judgeAgents.length === 0) {
+			this.logger.error(
+				`[AGENTS_ERROR] RequestID: ${requestId} - ` +
+					`All ${agents.length} agent(s) have canJudge=false. Cannot evaluate.`,
+			);
+			throw new Error(
+				'No eligible judge agents — all assigned agents have canJudge disabled',
+			);
+		}
+
 		this.logger.log(
-			`[AGENTS_LOADED] RequestID: ${requestId} - Loaded ${agents.length} agents: ` +
-				agents.map((a) => `${a.name}(w:${a.scoringWeight})`).join(', '),
+			`[AGENTS_LOADED] RequestID: ${requestId} - Loaded ${judgeAgents.length} judges: ` +
+				judgeAgents
+					.map((a) => `${a.name}(w:${a.scoringWeight})`)
+					.join(', '),
 		);
 
 		// Initialize debug output session if enabled
@@ -116,7 +138,7 @@ export class OrchestrationService {
 			request.brief,
 			request.threshold,
 			request.maxIterations,
-			agents.map((a) => ({
+			judgeAgents.map((a) => ({
 				id: a.id,
 				name: a.name,
 				weight: a.scoringWeight,
@@ -128,7 +150,7 @@ export class OrchestrationService {
 			`[RAG_LOADING] RequestID: ${requestId} - Loading agent documents for RAG`,
 		);
 		const agentsWithDocs = await Promise.all(
-			agents.map((a) =>
+			judgeAgents.map((a) =>
 				this.agentService.getWithDocuments(
 					a.id,
 					request.organizationId,
@@ -368,7 +390,10 @@ export class OrchestrationService {
 					// Parallelize S3 download + edit instruction building
 					const [sourceImageBase64, editInstruction] =
 						await Promise.all([
-							this.downloadImageAsBase64(editSourceImageId),
+							this.downloadImageAsBase64(
+								editSourceImageId,
+								request.organizationId,
+							),
 							this.promptOptimizerService.buildEditInstruction({
 								originalBrief: request.brief,
 								topIssues,
@@ -416,6 +441,7 @@ export class OrchestrationService {
 							() => {
 								totalRetries++;
 							},
+							requestId,
 						);
 						consecutiveEditCount++;
 					} catch (editError) {
@@ -446,6 +472,7 @@ export class OrchestrationService {
 							() => {
 								totalRetries++;
 							},
+							requestId,
 						);
 						consecutiveEditCount = 0;
 						editSourceImageId = undefined;
@@ -575,6 +602,7 @@ export class OrchestrationService {
 						() => {
 							totalRetries++;
 						},
+						requestId,
 					);
 
 					this.logger.log(
@@ -590,6 +618,14 @@ export class OrchestrationService {
 				);
 				const uploadStartTime = Date.now();
 				const debugImagePaths: (string | null)[] = [];
+
+				// Defensive: validate request has organizationId (should always be set from initial load)
+				if (!request.organizationId) {
+					throw new Error(
+						`Request ${requestId} missing organizationId - cannot upload to S3`,
+					);
+				}
+
 				// Use Promise.allSettled to avoid unhandled rejections when one upload fails while others are in-flight
 				const uploadSettled = await Promise.allSettled(
 					generatedImages.map(async (img, imgIndex) => {
@@ -613,6 +649,7 @@ export class OrchestrationService {
 							() => {
 								totalRetries++;
 							},
+							requestId,
 						);
 
 						this.logger.debug(
@@ -701,6 +738,7 @@ export class OrchestrationService {
 								agentsWithDocs.filter(Boolean) as any[],
 								image,
 								request.brief,
+								request.organizationId,
 								iterationContext,
 							);
 
@@ -750,11 +788,18 @@ export class OrchestrationService {
 					);
 
 				if (aggregated.length === 0) {
+					const errorDetails =
+						`RequestID: ${requestId} | Iteration: ${iteration}/${request.maxIterations} | ` +
+						`ImagesGenerated: ${imageRecords.length} | ` +
+						`JudgeCount: ${judgeAgents.length} | ` +
+						`EvaluationMapSize: ${evaluationsByImage.size}`;
 					this.logger.error(
-						`[EVAL_ERROR] RequestID: ${requestId} | Iteration: ${iteration} - No images evaluated`,
+						`[EVAL_ERROR] No images evaluated - ${errorDetails}`,
 					);
 					throw new Error(
-						'No images were evaluated - image generation may have failed',
+						`No images were evaluated after iteration ${iteration}. ` +
+							`Generated ${imageRecords.length} images with ${judgeAgents.length} judges, ` +
+							`but aggregation returned 0 results. This may indicate an evaluation failure.`,
 					);
 				}
 
@@ -1073,6 +1118,12 @@ export class OrchestrationService {
 
 	/**
 	 * Retry a function with exponential backoff
+	 * @param fn Function to retry
+	 * @param label Operation label for logging
+	 * @param maxRetries Maximum retry attempts (default: 3)
+	 * @param baseDelayMs Base delay in ms (default: 1000)
+	 * @param onRetry Optional callback on each retry
+	 * @param requestId Optional request ID for correlation logging (Issue #5)
 	 */
 	private async withRetry<T>(
 		fn: () => Promise<T>,
@@ -1080,6 +1131,7 @@ export class OrchestrationService {
 		maxRetries: number = 3,
 		baseDelayMs: number = 1000,
 		onRetry?: () => void,
+		requestId?: string,
 	): Promise<T> {
 		for (let attempt = 1; attempt <= maxRetries; attempt++) {
 			try {
@@ -1089,8 +1141,11 @@ export class OrchestrationService {
 					error instanceof Error ? error.message : 'Unknown';
 				if (attempt === maxRetries) throw error;
 				const delay = baseDelayMs * Math.pow(2, attempt - 1);
+				const requestPrefix = requestId
+					? `RequestID: ${requestId} | `
+					: '';
 				this.logger.warn(
-					`[RETRY] ${label} | Attempt: ${attempt}/${maxRetries} | ` +
+					`[RETRY] ${requestPrefix}${label} | Attempt: ${attempt}/${maxRetries} | ` +
 						`Error: ${message} | RetryIn: ${delay}ms`,
 				);
 				onRetry?.();
@@ -1108,22 +1163,53 @@ export class OrchestrationService {
 		buffer: Buffer,
 		contentType: string,
 		onRetry?: () => void,
+		requestId?: string,
 	): Promise<void> {
-		await this.withRetry(
-			() =>
-				this.s3
-					.putObject({
-						Bucket: process.env.AWS_S3_BUCKET!,
-						Key: key,
-						Body: buffer,
-						ContentType: contentType,
-					})
-					.promise(),
-			`S3Upload:${key}`,
-			3,
-			1000,
-			onRetry,
-		);
+		// Fix #3: Validate AWS_S3_BUCKET env var
+		const bucketName = process.env.AWS_S3_BUCKET;
+		if (!bucketName) {
+			throw new Error(
+				'AWS_S3_BUCKET environment variable is not configured',
+			);
+		}
+
+		try {
+			await this.withRetry(
+				() =>
+					this.s3
+						.putObject({
+							Bucket: bucketName,
+							Key: key,
+							Body: buffer,
+							ContentType: contentType,
+						})
+						.promise(),
+				`S3Upload:${key}`,
+				3,
+				1000,
+				onRetry,
+				requestId,
+			);
+		} catch (error) {
+			// Fix #3: Provide specific error messages for different S3 failures
+			const message =
+				error instanceof Error ? error.message : 'Unknown error';
+			if (message.includes('AccessDenied')) {
+				throw new Error(
+					`Access denied to S3 bucket: ${bucketName}. Check AWS credentials and bucket permissions.`,
+				);
+			} else if (message.includes('NoSuchBucket')) {
+				throw new Error(
+					`S3 bucket not found: ${bucketName}. Verify AWS_S3_BUCKET configuration.`,
+				);
+			} else if (message.includes('EntityTooLarge')) {
+				throw new Error(
+					`File too large for S3 upload: ${buffer.length} bytes`,
+				);
+			}
+			// Re-throw with original error for debugging
+			throw new Error(`Failed to upload to S3 (${key}): ${message}`);
+		}
 	}
 
 	/**
@@ -1283,27 +1369,76 @@ export class OrchestrationService {
 
 	/**
 	 * Download an image from S3 and return as base64 string
+	 * @param imageId Image ID to download
+	 * @param organizationId Organization ID for access validation (Fix #2: prevents cross-org access)
 	 */
-	private async downloadImageAsBase64(imageId: string): Promise<string> {
-		const image = await this.requestService.getImage(imageId);
+	private async downloadImageAsBase64(
+		imageId: string,
+		organizationId: string,
+	): Promise<string> {
+		// Fix #2: Organization scoping is already applied via getImage()
+		const image = await this.requestService.getImage(
+			imageId,
+			organizationId,
+		);
 		if (!image?.s3Key) {
-			throw new Error(`Image ${imageId} not found for edit mode`);
+			throw new Error(
+				`Image ${imageId} not found or access denied for organization ${organizationId}`,
+			);
 		}
 
 		this.logger.debug(
-			`[EDIT_DOWNLOAD] Downloading image ${imageId} from S3`,
+			`[EDIT_DOWNLOAD] Downloading image ${imageId} from S3 | OrgID: ${organizationId}`,
 		);
 
-		const s3Object = await this.s3
-			.getObject({
-				Bucket: process.env.AWS_S3_BUCKET!,
-				Key: image.s3Key,
-			})
-			.promise();
+		// Fix #3: Validate AWS_S3_BUCKET env var
+		const bucketName = process.env.AWS_S3_BUCKET;
+		if (!bucketName) {
+			throw new Error(
+				'AWS_S3_BUCKET environment variable is not configured',
+			);
+		}
 
-		// Safe buffer conversion (Body can be Buffer | Uint8Array | Readable | string)
+		let s3Object;
+		try {
+			s3Object = await this.s3
+				.getObject({
+					Bucket: bucketName,
+					Key: image.s3Key,
+				})
+				.promise();
+		} catch (error) {
+			// Fix #3: Provide specific error messages for different S3 failures
+			const message =
+				error instanceof Error ? error.message : 'Unknown error';
+			if (message.includes('NoSuchKey')) {
+				throw new Error(`Image file not found in S3: ${image.s3Key}`);
+			} else if (message.includes('AccessDenied')) {
+				throw new Error(`Access denied to S3 bucket: ${bucketName}`);
+			} else if (message.includes('NoSuchBucket')) {
+				throw new Error(`S3 bucket not found: ${bucketName}`);
+			}
+			throw new Error(`Failed to download image from S3: ${message}`);
+		}
+
+		// Fix #4: Properly handle all AWS SDK body types (no unsafe 'as any' cast)
 		const body = s3Object.Body;
-		const buffer = Buffer.isBuffer(body) ? body : Buffer.from(body as any);
+		let buffer: Buffer;
+
+		if (Buffer.isBuffer(body)) {
+			buffer = body;
+		} else if (body instanceof Uint8Array) {
+			buffer = Buffer.from(body);
+		} else if (typeof body === 'string') {
+			buffer = Buffer.from(body, 'utf-8');
+		} else if (body && typeof (body as any).read === 'function') {
+			// Handle Readable stream (should not happen with .promise(), but defensive coding)
+			throw new Error(
+				'Unexpected Readable stream returned from S3 getObject',
+			);
+		} else {
+			throw new Error(`Unexpected S3 body type: ${typeof body}`);
+		}
 
 		// Check size — keep under 2MB to avoid Gemini's automatic compression
 		const sizeMB = buffer.length / (1024 * 1024);
