@@ -130,18 +130,15 @@ describe('EvaluationService — pure logic', () => {
 			expect(result.promptInstructions).toEqual(['Use warmer tones']);
 		});
 
-		it('should handle TOP_ISSUE with missing fields by providing defaults', () => {
+		it('should skip TOP_ISSUE with no problem field', () => {
 			const json = JSON.stringify({
 				score: 60,
 				feedback: 'ok',
 				TOP_ISSUE: {},
 			});
 			const result = parse(json);
-			expect(result.topIssue).toEqual({
-				problem: 'Unknown issue',
-				severity: 'moderate',
-				fix: 'No fix provided',
-			});
+			expect(result.topIssue).toBeUndefined();
+			expect(result.topIssues).toBeUndefined();
 		});
 
 		it('should return undefined topIssue when not present', () => {

@@ -25,6 +25,7 @@ interface JudgeFeedback {
 	score: number;
 	weight: number;
 	topIssue?: TopIssue;
+	topIssues?: TopIssue[];
 	whatWorked?: string[];
 	promptInstructions?: string[];
 }
@@ -173,9 +174,8 @@ export class PromptOptimizerService implements OnModuleInit {
 	}
 
 	/**
-	 * Build a targeted edit instruction from judge feedback.
-	 * Unlike optimizePrompt() which produces 500+ word generation prompts,
-	 * this produces 1-3 sentence edit instructions for image editing.
+	 * Build a multi-fix edit instruction from judge feedback.
+	 * Addresses up to 5 issues per edit to maximize progress per iteration.
 	 */
 	public async buildEditInstruction(
 		input: BuildEditInstructionInput,
@@ -185,33 +185,49 @@ export class PromptOptimizerService implements OnModuleInit {
 			`[EDIT_INSTRUCTION_START] TopIssues: ${input.topIssues.length}`,
 		);
 
-		// Take the highest-severity issue
-		const primaryIssue = input.topIssues[0];
-		if (!primaryIssue) {
-			// No issues — generate a generic refinement instruction
+		if (input.topIssues.length === 0) {
 			return `Refine the image quality. Ensure all elements match this description: ${input.originalBrief.substring(0, 200)}. Keep everything else exactly the same.`;
 		}
+
+		// Deduplicate issues by problem text similarity, take up to 5
+		const seen = new Set<string>();
+		const issues = input.topIssues
+			.filter((issue) => {
+				const key = issue.problem.toLowerCase().substring(0, 50);
+				if (seen.has(key)) return false;
+				seen.add(key);
+				return true;
+			})
+			.slice(0, 5);
 
 		const systemPrompt = `You are an image editing instruction writer. Your job is to convert judge feedback into precise, actionable edit instructions for an AI image editor.
 
 RULES:
-- Output ONLY the edit instruction, nothing else
-- Keep it to 1-3 sentences maximum
-- Always specify what to KEEP unchanged: "Keep everything else exactly the same"
-- Be specific about the target element: "Change only the [X]" not "change the [X]"
+- Output ONLY the edit instructions, nothing else
+- Address ALL listed issues in a single coherent instruction block
+- Use a numbered list: one instruction per issue, 1-2 sentences each
+- End with: "Keep everything else exactly the same."
+- Be specific about each target element
 - Use descriptive visual language, not abstract concepts
 - Reference photographic terms when relevant (lighting, composition, depth of field)
-- ONE change per instruction — the most impactful fix only
+- Prioritize: fix the most impactful issues first in the list
 
-EXAMPLES OF GOOD INSTRUCTIONS:
-- "Make the Coca-Cola label text sharper and fully legible — the script should flow left-to-right without warping or distortion. Keep the bottle shape, lighting, and background exactly the same."
-- "Change the background from white to a warm amber gradient that fades to dark at the edges. Keep the product, lighting, and all other elements exactly the same."
-- "Correct the bottle proportions — the glass bottle should have the classic Coca-Cola hobbleskirt silhouette with a height-to-width ratio of approximately 3:1. Keep the label, background, and lighting unchanged."`;
+EXAMPLE OF GOOD MULTI-FIX INSTRUCTION:
+"Fix the following issues:
+1. Sharpen the label text — the Coca-Cola script should be fully legible, flowing left-to-right without warping or distortion.
+2. Correct the bottle proportions — the glass body should have the classic hobbleskirt silhouette with a height-to-width ratio of approximately 3:1.
+3. Warm up the lighting — add soft amber tones from the left side to match the golden-hour mood specified in the brief.
+Keep everything else exactly the same."`;
 
-		const userMessage = `## Issue to Fix
-Problem: ${primaryIssue.problem}
-Severity: ${primaryIssue.severity}
-Suggested Fix: ${primaryIssue.fix}
+		const issuesList = issues
+			.map(
+				(issue, i) =>
+					`${i + 1}. [${issue.severity.toUpperCase()}] Problem: ${issue.problem}\n   Suggested Fix: ${issue.fix}`,
+			)
+			.join('\n');
+
+		const userMessage = `## Issues to Fix (${issues.length} issues, priority order)
+${issuesList}
 
 ## Elements That Work Well (PRESERVE THESE)
 ${input.whatWorked.length > 0 ? input.whatWorked.map((w) => `- ${w}`).join('\n') : '- No specific elements flagged as working well'}
@@ -219,7 +235,7 @@ ${input.whatWorked.length > 0 ? input.whatWorked.map((w) => `- ${w}`).join('\n')
 ## Original Brief (for context)
 ${input.originalBrief.substring(0, 300)}
 
-Write the edit instruction now.`;
+Write the multi-fix edit instruction now.`;
 
 		const messages: AIMessage[] = [
 			{ role: AIMessageRole.System, content: systemPrompt },
@@ -276,35 +292,38 @@ Write the edit instruction now.`;
 			parts.push('');
 		}
 
-		// Extract and prioritize TOP_ISSUES (highest impact first)
-		const topIssues = input.judgeFeedback
-			.filter((f) => f.topIssue)
+		// Extract and prioritize ALL issues from all judges (highest impact first)
+		const severityOrder: Record<string, number> = {
+			critical: 4,
+			major: 3,
+			moderate: 2,
+			minor: 1,
+		};
+		const allIssues = input.judgeFeedback
+			.flatMap((f) => {
+				const issues = f.topIssues ?? (f.topIssue ? [f.topIssue] : []);
+				return issues.map((ti) => ({
+					agentName: f.agentName,
+					weight: f.weight,
+					...ti,
+				}));
+			})
 			.sort((a, b) => {
-				// Sort by severity (critical > major > moderate > minor) then by weight
-				const severityOrder = {
-					critical: 4,
-					major: 3,
-					moderate: 2,
-					minor: 1,
-				};
-				const aSeverity =
-					severityOrder[a.topIssue?.severity ?? 'minor'];
-				const bSeverity =
-					severityOrder[b.topIssue?.severity ?? 'minor'];
-				if (aSeverity !== bSeverity) return bSeverity - aSeverity;
+				const aSev = severityOrder[a.severity ?? 'minor'] ?? 1;
+				const bSev = severityOrder[b.severity ?? 'minor'] ?? 1;
+				if (aSev !== bSev) return bSev - aSev;
 				return b.weight - a.weight;
 			});
 
-		if (topIssues.length > 0) {
+		if (allIssues.length > 0) {
 			parts.push('## CRITICAL ISSUES TO FIX (Priority Order)');
 			parts.push(
 				'These are the TOP issues identified by judges. Address them IN ORDER.',
 			);
 			parts.push('');
-			topIssues.forEach((f, i) => {
-				const ti = f.topIssue!;
+			allIssues.forEach((ti, i) => {
 				parts.push(
-					`${i + 1}. [${ti.severity.toUpperCase()}] ${f.agentName}: ${ti.problem}`,
+					`${i + 1}. [${ti.severity.toUpperCase()}] ${ti.agentName}: ${ti.problem}`,
 				);
 				parts.push(`   FIX: ${ti.fix}`);
 			});

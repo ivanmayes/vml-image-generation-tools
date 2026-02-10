@@ -29,11 +29,11 @@ Respond with a single JSON object. No markdown fences, no preamble, no commentar
 
 {
   "score": <number 0-100>,
-  "TOP_ISSUE": {
-    "problem": "<single most important issue to fix>",
-    "severity": "critical|major|moderate|minor",
-    "fix": "<specific, actionable fix instruction>"
-  },
+  "TOP_ISSUES": [
+    { "problem": "<most important issue>", "severity": "critical|major|moderate|minor", "fix": "<specific, actionable fix>" },
+    { "problem": "<second issue>", "severity": "...", "fix": "..." },
+    { "problem": "<third issue>", "severity": "...", "fix": "..." }
+  ],
   "checklist": {
     "<criterion>": { "passed": true|false, "note": "<brief note>" }
   },
@@ -46,7 +46,7 @@ Respond with a single JSON object. No markdown fences, no preamble, no commentar
 ### Field Guidelines
 
 - **score**: Overall quality score 0-100 using the calibration anchors above.
-- **TOP_ISSUE**: The single highest-priority problem. Severity drives iteration strategy: "critical" and "major" trigger full regeneration; "moderate" and "minor" allow targeted edits. Be honest about severity.
+- **TOP_ISSUES**: Array of 3-5 issues ranked by priority (most important first). The first item's severity drives iteration strategy: "critical" and "major" trigger full regeneration; "moderate" and "minor" allow targeted edits. Be honest about severity. Include all distinct problems — each edit iteration can address multiple fixes simultaneously.
 - **checklist**: Pass/fail for each evaluation criterion relevant to the brief. Use concise criterion names.
 - **categoryScores**: Score each evaluation category independently (0-100).
 - **whatWorked**: List elements that should be preserved in future iterations. Be specific — "warm amber lighting on the bottle" not "good lighting".

@@ -28,7 +28,7 @@ import {
 	ApiBearerAuth,
 } from '@nestjs/swagger';
 import { Observable } from 'rxjs';
-import { map } from 'rxjs/operators';
+import { map, startWith } from 'rxjs/operators';
 
 import { Roles } from '../../user/auth/roles.decorator';
 import { RolesGuard } from '../../user/auth/roles.guard';
@@ -42,6 +42,7 @@ import { AgentService } from '../../agent/agent.service';
 import { JobQueueService } from '../jobs/job-queue.service';
 import {
 	GenerationEventsService,
+	GenerationEvent,
 	GenerationEventType,
 	SseMessageEvent,
 } from '../orchestration/generation-events.service';
@@ -431,24 +432,26 @@ eventSource.addEventListener('iteration_complete', (e) => {
 			);
 		}
 
-		// Send full current state as first event (solves race condition)
+		// Build initial state event to prepend via startWith()
 		const images = await this.requestService.getImagesByRequest(id);
-		this.generationEventsService.emit(
-			id,
-			GenerationEventType.INITIAL_STATE,
-			{
+		const initialEvent: GenerationEvent = {
+			type: GenerationEventType.INITIAL_STATE,
+			requestId: id,
+			data: {
 				request: new GenerationRequest(request).toDetailed(),
 				images: images.map((img) => new GeneratedImage(img).toPublic()),
 			},
-		);
+			timestamp: new Date(),
+		};
 
 		// Detect client disconnect for cleanup
 		(req as any).on('close', () => {
 			// Cleanup is handled by the Observable finalize in GenerationEventsService
 		});
 
-		// Subscribe to SSE events and map to MessageEvent format
+		// Subscribe to SSE events, prepend initial state, and map to MessageEvent format
 		return this.generationEventsService.subscribe(id).pipe(
+			startWith(initialEvent),
 			map((event) => ({
 				data: event,
 				type: event.type,

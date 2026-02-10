@@ -31,7 +31,10 @@ export interface EvaluationResult {
 	categoryScores?: Record<string, number>;
 	feedback: string;
 	weight: number;
+	/** @deprecated Use topIssues instead */
 	topIssue?: TopIssue;
+	/** Ranked list of issues from this judge (most important first) */
+	topIssues?: TopIssue[];
 	whatWorked?: string[];
 	checklist?: Record<string, { passed: boolean; note?: string }>;
 	promptInstructions?: string[];
@@ -158,12 +161,27 @@ export class EvaluationService {
 		// P2 Issue #7: Use agent's modelTier instead of hardcoded model
 		const model = this.getModelFromTier(agent.modelTier);
 
+		// Log when built-in tools are enabled
+		if (
+			agent.builtInTools?.googleSearch ||
+			agent.builtInTools?.codeExecution
+		) {
+			this.logger.log(
+				`[EVAL_TOOLS] Agent: ${agent.name} | GoogleSearch: ${!!agent.builtInTools.googleSearch} | CodeExecution: ${!!agent.builtInTools.codeExecution}`,
+			);
+		}
+
 		const llmStartTime = Date.now();
 		const response = await this.aiService.generateText({
 			provider: AIProvider.Google,
 			model,
 			messages,
 			temperature: agent.temperature ?? 0.3,
+			builtInTools:
+				agent.builtInTools?.googleSearch ||
+				agent.builtInTools?.codeExecution
+					? agent.builtInTools
+					: undefined,
 		});
 		const llmTime = Date.now() - llmStartTime;
 
@@ -201,6 +219,7 @@ export class EvaluationService {
 			feedback: evaluation.feedback,
 			weight: agent.scoringWeight,
 			topIssue: evaluation.topIssue,
+			topIssues: evaluation.topIssues,
 			whatWorked: evaluation.whatWorked,
 			checklist: evaluation.checklist,
 			promptInstructions: evaluation.promptInstructions,
@@ -341,10 +360,41 @@ export class EvaluationService {
 			this.logger.warn(
 				`[EVAL_JUDGE_PROMPT_WARNING] Agent ${agent.name} has custom judgePrompt without OUTPUT FORMAT section - appending default format`,
 			);
-			return `${agent.systemPrompt}\n\n---\n\n${agent.judgePrompt}\n\n---\n\n${DEFAULT_JUDGE_TEMPLATE}`;
+			return `${agent.systemPrompt}\n\n---\n\n${agent.judgePrompt}\n\n---\n\n${DEFAULT_JUDGE_TEMPLATE}${this.buildToolInstructions(agent)}`;
 		}
 
-		return `${agent.systemPrompt}\n\n---\n\n${judgeFormat}`;
+		return `${agent.systemPrompt}\n\n---\n\n${judgeFormat}${this.buildToolInstructions(agent)}`;
+	}
+
+	/**
+	 * Build tool usage instructions when built-in tools are enabled
+	 */
+	private buildToolInstructions(agent: Agent): string {
+		if (
+			!agent.builtInTools?.googleSearch &&
+			!agent.builtInTools?.codeExecution
+		) {
+			return '';
+		}
+
+		const parts = ['\n\n---\n\n## AVAILABLE TOOLS'];
+
+		if (agent.builtInTools.googleSearch) {
+			parts.push(
+				'\n### Google Search\nUse Google Search to verify brand accuracy, product appearance, and factual claims. Search for the real product to compare against the generated image. Include findings in your feedback.',
+			);
+		}
+
+		if (agent.builtInTools.codeExecution) {
+			parts.push(
+				'\n### Code Execution (Python)\nUse Python code execution for objective measurements: color distance (Delta E), aspect ratios, layout proportions, dominant color analysis. Include computation results in your feedback.',
+			);
+		}
+
+		parts.push(
+			'\n\n**IMPORTANT**: Your final response MUST still be the standard JSON evaluation object regardless of tool usage.',
+		);
+		return parts.join('');
 	}
 
 	/**
@@ -406,6 +456,7 @@ export class EvaluationService {
 		categoryScores?: Record<string, number>;
 		feedback: string;
 		topIssue?: TopIssue;
+		topIssues?: TopIssue[];
 		whatWorked?: string[];
 		checklist?: Record<string, { passed: boolean; note?: string }>;
 		promptInstructions?: string[];
@@ -423,28 +474,47 @@ export class EvaluationService {
 			this.logger.debug(
 				`[PARSE_DEBUG] Keys in response: ${Object.keys(parsed).join(', ')}`,
 			);
-			if (parsed.TOP_ISSUE || parsed.topIssue) {
-				this.logger.debug(
-					`[PARSE_DEBUG] TOP_ISSUE found: ${JSON.stringify(parsed.TOP_ISSUE || parsed.topIssue)}`,
-				);
-			} else {
-				this.logger.debug(`[PARSE_DEBUG] No TOP_ISSUE in response`);
-			}
 
 			// Handle score carefully: use 50 only if score is missing/NaN, not if it's 0
 			const parsedScore = Number(parsed.score);
 			const score = Number.isNaN(parsedScore) ? 50 : parsedScore;
 
-			// Parse TOP_ISSUE if present
-			let topIssue: TopIssue | undefined;
-			if (parsed.TOP_ISSUE || parsed.topIssue) {
-				const ti = parsed.TOP_ISSUE || parsed.topIssue;
-				topIssue = {
-					problem: ti.problem || 'Unknown issue',
-					severity: ti.severity || 'moderate',
-					fix: ti.fix || 'No fix provided',
-				};
+			// Parse TOP_ISSUES (array) or legacy TOP_ISSUE (single object)
+			let topIssues: TopIssue[] = [];
+			const rawIssues =
+				parsed.TOP_ISSUES || parsed.topIssues || parsed.top_issues;
+			const rawIssue =
+				parsed.TOP_ISSUE || parsed.topIssue || parsed.top_issue;
+
+			if (Array.isArray(rawIssues) && rawIssues.length > 0) {
+				topIssues = rawIssues
+					.filter((ti: any) => ti && ti.problem)
+					.map((ti: any) => ({
+						problem: ti.problem || 'Unknown issue',
+						severity: ti.severity || 'moderate',
+						fix: ti.fix || 'No fix provided',
+					}));
+				this.logger.debug(
+					`[PARSE_DEBUG] TOP_ISSUES array: ${topIssues.length} issues`,
+				);
+			} else if (rawIssue && rawIssue.problem) {
+				// Legacy single TOP_ISSUE format
+				topIssues = [
+					{
+						problem: rawIssue.problem || 'Unknown issue',
+						severity: rawIssue.severity || 'moderate',
+						fix: rawIssue.fix || 'No fix provided',
+					},
+				];
+				this.logger.debug(
+					`[PARSE_DEBUG] Legacy TOP_ISSUE: ${JSON.stringify(rawIssue)}`,
+				);
+			} else {
+				this.logger.debug(`[PARSE_DEBUG] No TOP_ISSUES in response`);
 			}
+
+			// Keep topIssue for backward compat (first item)
+			const topIssue = topIssues.length > 0 ? topIssues[0] : undefined;
 
 			// Parse whatWorked if present
 			const whatWorked = parsed.whatWorked || parsed.what_worked;
@@ -472,6 +542,7 @@ export class EvaluationService {
 				categoryScores,
 				feedback: parsed.feedback || 'No feedback provided',
 				topIssue,
+				topIssues: topIssues.length > 0 ? topIssues : undefined,
 				whatWorked: Array.isArray(whatWorked) ? whatWorked : undefined,
 				checklist,
 				promptInstructions,
@@ -509,6 +580,7 @@ export class EvaluationService {
 			feedback: e.feedback,
 			weight: e.weight,
 			topIssue: e.topIssue,
+			topIssues: e.topIssues,
 			whatWorked: e.whatWorked,
 			checklist: e.checklist,
 			promptInstructions: e.promptInstructions,

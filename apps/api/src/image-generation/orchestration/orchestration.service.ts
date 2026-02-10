@@ -199,6 +199,8 @@ export class OrchestrationService {
 			request.iterations?.[request.iterations.length - 1];
 		let consecutiveEditCount =
 			lastPersistedIteration?.consecutiveEditCount ?? 0;
+		let plateauEditBudget = 0; // Remaining edit iterations after plateau detected in MIXED mode
+		let prePlateauBestScore = 0; // Best score when plateau was first detected
 
 		try {
 			let currentPrompt: string | undefined;
@@ -317,34 +319,39 @@ export class OrchestrationService {
 						? latestIterations[latestIterations.length - 1]
 								.evaluations
 						: [];
-				const topIssueSeverity = lastIterationEvals
-					.filter((e) => e.topIssue)
-					.sort((a, b) => {
-						const order: Record<string, number> = {
-							critical: 0,
-							major: 1,
-							moderate: 2,
-							minor: 3,
-						};
-						return (
-							(order[a.topIssue!.severity] ?? 2) -
-							(order[b.topIssue!.severity] ?? 2)
-						);
-					})[0]?.topIssue?.severity;
-
-				const strategy = this.selectIterationStrategy(
-					request.generationMode ?? GenerationMode.REGENERATION,
-					iteration,
-					bestScore,
-					latestIterations.map((i) => i.aggregateScore),
-					topIssueSeverity,
-					consecutiveEditCount,
+				// Get worst severity across all issues from all judges
+				const allIssues = lastIterationEvals.flatMap(
+					(e) => e.topIssues ?? (e.topIssue ? [e.topIssue] : []),
 				);
+				const severityOrder: Record<string, number> = {
+					critical: 0,
+					major: 1,
+					moderate: 2,
+					minor: 3,
+				};
+				const topIssueSeverity = allIssues.sort(
+					(a, b) =>
+						(severityOrder[a.severity] ?? 2) -
+						(severityOrder[b.severity] ?? 2),
+				)[0]?.severity;
+
+				const strategy =
+					plateauEditBudget > 0
+						? 'edit'
+						: this.selectIterationStrategy(
+								request.generationMode ??
+									GenerationMode.REGENERATION,
+								iteration,
+								bestScore,
+								latestIterations.map((i) => i.aggregateScore),
+								topIssueSeverity,
+								consecutiveEditCount,
+							);
 
 				this.logger.log(
 					`[STRATEGY_SELECTED] RequestID: ${requestId} | Iteration: ${iteration} | ` +
 						`Mode: ${request.generationMode ?? 'regeneration'} | Strategy: ${strategy} | ` +
-						`ConsecutiveEdits: ${consecutiveEditCount}`,
+						`ConsecutiveEdits: ${consecutiveEditCount} | PlateauEditBudget: ${plateauEditBudget}`,
 				);
 
 				let optimizedPrompt: string;
@@ -379,10 +386,10 @@ export class OrchestrationService {
 					editSourceImageId =
 						lastIteration?.selectedImageId ?? bestImageId;
 
-					// Build edit instruction from TOP_ISSUE
-					const topIssues = lastIterationEvals
-						.filter((e) => e.topIssue)
-						.map((e) => e.topIssue!);
+					// Collect all issues from TOP_ISSUES arrays (or legacy topIssue)
+					const topIssues = lastIterationEvals.flatMap(
+						(e) => e.topIssues ?? (e.topIssue ? [e.topIssue] : []),
+					);
 					const whatWorked = lastIterationEvals
 						.flatMap((e) => e.whatWorked ?? [])
 						.filter((w, i, arr) => arr.indexOf(w) === i);
@@ -478,6 +485,9 @@ export class OrchestrationService {
 						editSourceImageId = undefined;
 					}
 
+					// Decrement plateau budget regardless of edit success/failure (iteration was consumed)
+					if (plateauEditBudget > 0) plateauEditBudget--;
+
 					this.logger.log(
 						`[GENERATION_COMPLETE] RequestID: ${requestId} | Iteration: ${iteration} | ` +
 							`Strategy: edit | ImagesGenerated: ${generatedImages.length} | ` +
@@ -531,6 +541,7 @@ export class OrchestrationService {
 									score: e.overallScore,
 									weight: e.weight,
 									topIssue: e.topIssue,
+									topIssues: e.topIssues,
 									whatWorked: e.whatWorked,
 									promptInstructions: e.promptInstructions,
 								}))
@@ -987,12 +998,55 @@ export class OrchestrationService {
 					where: { id: requestId },
 				});
 
+				// Change 5: Reset plateau edit budget if score improved significantly
+				if (
+					plateauEditBudget > 0 &&
+					bestScore > prePlateauBestScore + 3
+				) {
+					this.logger.log(
+						`[PLATEAU_EDIT_BROKEN] RequestID: ${requestId} | Iteration: ${iteration} | ` +
+							`Score: ${bestScore.toFixed(2)} exceeded pre-plateau best ${prePlateauBestScore.toFixed(2)} by >3 | ` +
+							`Resetting plateauEditBudget (was ${plateauEditBudget})`,
+					);
+					plateauEditBudget = 0;
+				}
+
 				if (
 					updatedRequest?.isScorePlateauing(
 						request.imageParams?.plateauWindowSize,
 						request.imageParams?.plateauThreshold,
 					)
 				) {
+					const isMixed =
+						(request.generationMode ??
+							GenerationMode.REGENERATION) ===
+						GenerationMode.MIXED;
+
+					if (
+						isMixed &&
+						plateauEditBudget === 0 &&
+						prePlateauBestScore === 0
+					) {
+						// First plateau detection in MIXED mode: activate edit budget
+						plateauEditBudget = 3;
+						prePlateauBestScore = bestScore;
+						this.logger.log(
+							`[PLATEAU_EDIT_SWITCH] RequestID: ${requestId} | Iteration: ${iteration} | ` +
+								`Score: ${bestScore.toFixed(2)} | Activating plateau edit budget (3 iterations)`,
+						);
+						continue;
+					}
+
+					if (isMixed && plateauEditBudget > 0) {
+						// Budget still active, keep going
+						this.logger.log(
+							`[PLATEAU_EDIT_CONTINUE] RequestID: ${requestId} | Iteration: ${iteration} | ` +
+								`Score: ${bestScore.toFixed(2)} | PlateauEditBudget remaining: ${plateauEditBudget}`,
+						);
+						continue;
+					}
+
+					// Non-MIXED mode, or MIXED with exhausted budget: exit
 					const totalTime = Date.now() - startTime;
 					await this.requestService.complete(
 						requestId,
@@ -1182,6 +1236,7 @@ export class OrchestrationService {
 							Key: key,
 							Body: buffer,
 							ContentType: contentType,
+							ACL: 'public-read',
 						})
 						.promise(),
 				`S3Upload:${key}`,
@@ -1228,17 +1283,21 @@ export class OrchestrationService {
 			minor: 3,
 		};
 
-		// Extract issues with severity from evaluations
+		// Extract all issues from TOP_ISSUES arrays (or legacy topIssue)
 		const issues = evaluations
-			.filter((e) => e.topIssue?.problem)
-			.map((e) => ({
-				problem: e.topIssue!.problem,
-				fix: e.topIssue!.fix,
-				severity: e.topIssue!.severity || 'moderate',
-				agentName: e.agentName,
-			}))
+			.flatMap((e) => {
+				const allIssues =
+					e.topIssues ?? (e.topIssue ? [e.topIssue] : []);
+				return allIssues
+					.filter((ti) => ti.problem)
+					.map((ti) => ({
+						problem: ti.problem,
+						fix: ti.fix,
+						severity: ti.severity || 'moderate',
+						agentName: e.agentName,
+					}));
+			})
 			.sort((a, b) => {
-				// Default to 'moderate' priority (2) for unknown severities
 				const aOrder = severityOrder[a.severity] ?? 2;
 				const bOrder = severityOrder[b.severity] ?? 2;
 				return aOrder - bOrder;

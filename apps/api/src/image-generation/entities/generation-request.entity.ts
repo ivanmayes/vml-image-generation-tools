@@ -86,7 +86,7 @@ export interface IterationSnapshot {
 }
 
 /**
- * Top issue identified by a judge - the single most important thing to fix
+ * Top issue identified by a judge
  */
 export interface TopIssueSnapshot {
 	problem: string;
@@ -106,6 +106,7 @@ export interface AgentEvaluationSnapshot {
 	feedback: string;
 	weight: number;
 	topIssue?: TopIssueSnapshot;
+	topIssues?: TopIssueSnapshot[];
 	whatWorked?: string[];
 	checklist?: Record<string, { passed: boolean; note?: string }>;
 	promptInstructions?: string[];
