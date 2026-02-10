@@ -18,6 +18,8 @@ import {
 	GenerationRequest,
 	PromptOptimizer,
 } from './image-generation/entities';
+import { Composition } from './composition/entities/composition.entity';
+import { CompositionVersion } from './composition/entities/composition-version.entity';
 // CLI_ENTITIES_IMPORT
 
 @Module({
@@ -57,6 +59,8 @@ import {
 				GeneratedImage,
 				GenerationRequest,
 				PromptOptimizer,
+				Composition,
+				CompositionVersion,
 				// CLI_ENTITIES_REF
 			],
 			'default',

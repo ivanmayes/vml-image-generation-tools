@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 
 import { AgentModule } from '../agent/agent.module';
+import { CompositionModule } from '../composition/composition.module';
 
 import { DocumentProcessorModule } from './document-processor/document-processor.module';
 import { PromptOptimizerModule } from './prompt-optimizer/prompt-optimizer.module';
@@ -14,6 +15,7 @@ const isDevelopment = process.env.NODE_ENV !== 'production';
 @Module({
 	imports: [
 		AgentModule,
+		CompositionModule,
 		DocumentProcessorModule,
 		PromptOptimizerModule,
 		GenerationRequestModule,
@@ -22,6 +24,7 @@ const isDevelopment = process.env.NODE_ENV !== 'production';
 	],
 	controllers: isDevelopment ? [DebugController] : [],
 	exports: [
+		CompositionModule,
 		DocumentProcessorModule,
 		PromptOptimizerModule,
 		GenerationRequestModule,
