@@ -51,6 +51,24 @@ export class RagConfigDto {
 	similarityThreshold?: number = 0.7;
 }
 
+export class BuiltInToolsConfigDto {
+	@ApiPropertyOptional({
+		description: 'Enable Google Search grounding for this agent',
+		example: false,
+	})
+	@IsOptional()
+	@IsBoolean()
+	googleSearch?: boolean;
+
+	@ApiPropertyOptional({
+		description: 'Enable Python code execution for this agent',
+		example: false,
+	})
+	@IsOptional()
+	@IsBoolean()
+	codeExecution?: boolean;
+}
+
 export class AgentCreateDto {
 	@ApiProperty({
 		description: 'Agent name',
@@ -275,4 +293,14 @@ export class AgentCreateDto {
 	@IsString()
 	@MaxLength(50000)
 	judgePrompt?: string;
+
+	@ApiPropertyOptional({
+		description: 'Built-in Gemini tools (Google Search, Code Execution)',
+		type: BuiltInToolsConfigDto,
+	})
+	@IsOptional()
+	@IsObject()
+	@ValidateNested()
+	@Type(() => BuiltInToolsConfigDto)
+	builtInTools?: BuiltInToolsConfigDto;
 }

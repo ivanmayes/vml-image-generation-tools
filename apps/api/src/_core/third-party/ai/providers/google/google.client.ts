@@ -275,21 +275,37 @@ export class GoogleClient {
 	}
 
 	/**
-	 * Convert tools to Google format
+	 * Convert tools to Google format (function declarations + built-in tools)
 	 */
 	private static convertTools(
 		tools?: AITextRequest['tools'],
+		builtInTools?: AITextRequest['builtInTools'],
 	): Tool[] | undefined {
-		if (!tools?.length) return undefined;
+		const result: Tool[] = [];
 
-		const functionDeclarations: FunctionDeclaration[] = tools.map((t) => ({
-			name: t.function.name,
-			description: t.function.description ?? '',
-			parameters: t.function
-				.parameters as FunctionDeclaration['parameters'],
-		}));
+		// Existing function declarations
+		if (tools?.length) {
+			result.push({
+				functionDeclarations: tools.map((t) => ({
+					name: t.function.name,
+					description: t.function.description ?? '',
+					parameters: t.function
+						.parameters as FunctionDeclaration['parameters'],
+				})),
+			});
+		}
 
-		return [{ functionDeclarations }];
+		// Built-in: Code Execution
+		if (builtInTools?.codeExecution) {
+			result.push({ codeExecution: {} } as Tool);
+		}
+
+		// Built-in: Google Search
+		if (builtInTools?.googleSearch) {
+			result.push({ googleSearch: {} } as unknown as Tool);
+		}
+
+		return result.length > 0 ? result : undefined;
 	}
 
 	/**
@@ -327,7 +343,7 @@ export class GoogleClient {
 							? 'application/json'
 							: undefined,
 				},
-				tools: this.convertTools(request.tools),
+				tools: this.convertTools(request.tools, request.builtInTools),
 			});
 
 			const result = await model.generateContent({ contents });
@@ -405,7 +421,7 @@ export class GoogleClient {
 							? [request.stop]
 							: request.stop,
 				},
-				tools: this.convertTools(request.tools),
+				tools: this.convertTools(request.tools, request.builtInTools),
 			});
 
 			const result = await model.generateContentStream({ contents });

@@ -109,6 +109,14 @@ export interface AIBaseResponse {
 // ============================================================================
 
 /**
+ * Built-in tools for Gemini (Google Search grounding, Code Execution)
+ */
+export interface AIBuiltInTools {
+	googleSearch?: boolean;
+	codeExecution?: boolean;
+}
+
+/**
  * Text generation request
  */
 export interface AITextRequest extends AIBaseRequest {
@@ -120,6 +128,7 @@ export interface AITextRequest extends AIBaseRequest {
 	presencePenalty?: number;
 	stop?: string | string[];
 	tools?: AITool[];
+	builtInTools?: AIBuiltInTools;
 	toolChoice?:
 		| 'auto'
 		| 'none'

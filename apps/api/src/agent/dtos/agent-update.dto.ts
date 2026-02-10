@@ -25,7 +25,7 @@ import {
 	AgentStatus,
 } from '../agent.entity';
 
-import { RagConfigDto } from './agent-create.dto';
+import { RagConfigDto, BuiltInToolsConfigDto } from './agent-create.dto';
 
 export class AgentUpdateDto {
 	@ApiPropertyOptional({
@@ -254,4 +254,14 @@ export class AgentUpdateDto {
 	@IsString()
 	@MaxLength(50000)
 	judgePrompt?: string | null;
+
+	@ApiPropertyOptional({
+		description: 'Built-in Gemini tools (Google Search, Code Execution)',
+		type: BuiltInToolsConfigDto,
+	})
+	@IsOptional()
+	@IsObject()
+	@ValidateNested()
+	@Type(() => BuiltInToolsConfigDto)
+	builtInTools?: BuiltInToolsConfigDto;
 }

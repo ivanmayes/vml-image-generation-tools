@@ -28,6 +28,14 @@ export const RagConfigSchema = z.object({
 export type RagConfig = z.infer<typeof RagConfigSchema>;
 
 /**
+ * Built-in tools configuration for Gemini (Google Search, Code Execution)
+ */
+export interface BuiltInToolsConfig {
+	googleSearch?: boolean;
+	codeExecution?: boolean;
+}
+
+/**
  * Agent type: EXPERT uses full context, AUDIENCE uses summarized context.
  */
 export enum AgentType {
@@ -168,6 +176,9 @@ export class Agent {
 	@Column('text', { nullable: true })
 	judgePrompt?: string | null;
 
+	@Column('jsonb', { default: {} })
+	builtInTools!: BuiltInToolsConfig;
+
 	@Column('uuid', { nullable: true })
 	createdBy?: string;
 
@@ -226,6 +237,7 @@ export class Agent {
 			maxTokens: this.maxTokens,
 			avatarUrl: this.avatarUrl,
 			judgePrompt: this.judgePrompt,
+			builtInTools: this.builtInTools ?? {},
 			createdBy: this.createdBy,
 			createdAt: this.createdAt,
 			updatedAt: this.updatedAt,
