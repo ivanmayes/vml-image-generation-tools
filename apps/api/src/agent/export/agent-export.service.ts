@@ -29,6 +29,7 @@ export interface VmlAgentJson {
 	temperature?: number;
 	maxTokens?: number;
 	avatarUrl?: string;
+	judgePrompt?: string | null;
 }
 
 /**
@@ -153,6 +154,7 @@ export class AgentExportService {
 			temperature: agent.temperature ?? undefined,
 			maxTokens: agent.maxTokens ?? undefined,
 			avatarUrl: agent.avatarUrl ?? undefined,
+			judgePrompt: agent.judgePrompt ?? undefined,
 		};
 	}
 }

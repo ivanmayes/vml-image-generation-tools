@@ -165,6 +165,9 @@ export class Agent {
 	@Column('text', { nullable: true })
 	avatarUrl?: string;
 
+	@Column('text', { nullable: true })
+	judgePrompt?: string | null;
+
 	@Column('uuid', { nullable: true })
 	createdBy?: string;
 
@@ -222,6 +225,7 @@ export class Agent {
 			temperature: this.temperature,
 			maxTokens: this.maxTokens,
 			avatarUrl: this.avatarUrl,
+			judgePrompt: this.judgePrompt,
 			createdBy: this.createdBy,
 			createdAt: this.createdAt,
 			updatedAt: this.updatedAt,

@@ -47,13 +47,27 @@ export class AgentService {
 		return this.agentRepository.save(entity);
 	}
 
-	public async update(id: string, updates: Partial<Agent>) {
-		const agent = await this.agentRepository.findOne({
-			where: { id, deletedAt: IsNull() },
-		});
+	public async update(
+		id: string,
+		updates: Partial<Agent>,
+		organizationId?: string,
+	) {
+		const where: FindOptionsWhere<Agent> = {
+			id,
+			deletedAt: IsNull(),
+		};
+
+		// Organization scoping is required for security
+		if (organizationId) {
+			where.organizationId = organizationId;
+		}
+
+		const agent = await this.agentRepository.findOne({ where });
 
 		if (!agent) {
-			throw new NotFoundException('Agent not found');
+			throw new NotFoundException(
+				`Agent ${id} not found${organizationId ? ` in organization ${organizationId}` : ''}`,
+			);
 		}
 
 		Object.assign(agent, updates);
