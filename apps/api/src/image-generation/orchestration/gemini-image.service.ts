@@ -26,6 +26,8 @@ export interface GeneratedImageResult {
 	mimeType: string;
 	width?: number;
 	height?: number;
+	/** Intermediate artifacts for debug output (only populated when debug is enabled) */
+	debugData?: Record<string, Buffer | string | object>;
 }
 
 @Injectable()
@@ -33,6 +35,7 @@ export class GeminiImageService {
 	private readonly logger = new Logger(GeminiImageService.name);
 	private readonly client: GoogleGenAI;
 	private readonly mockMode: boolean;
+	private readonly debugEnabled: boolean;
 	private readonly imageModel = 'gemini-3-pro-image-preview';
 
 	constructor() {
@@ -53,15 +56,18 @@ export class GeminiImageService {
 		}
 
 		this.client = new GoogleGenAI({ apiKey: apiKey ?? '' });
+		this.debugEnabled = process.env.IMAGE_GEN_DEBUG_OUTPUT === 'true';
 	}
 
 	/**
 	 * Fetch reference images from URLs and convert to base64
+	 * Fix #6: Track and report failures. Throws if ALL references fail.
 	 */
 	private async fetchReferenceImages(
 		urls: string[],
 	): Promise<FetchedReferenceImage[]> {
 		const results: FetchedReferenceImage[] = [];
+		const failures: { url: string; reason: string }[] = [];
 
 		for (const url of urls) {
 			try {
@@ -69,8 +75,10 @@ export class GeminiImageService {
 				const response = await fetch(url);
 
 				if (!response.ok) {
+					const reason = `HTTP ${response.status}: ${response.statusText}`;
+					failures.push({ url, reason });
 					this.logger.warn(
-						`[FETCH_REFERENCE_FAILED] URL: ${url} | Status: ${response.status}`,
+						`[FETCH_REFERENCE_FAILED] URL: ${url} | ${reason}`,
 					);
 					continue;
 				}
@@ -90,10 +98,29 @@ export class GeminiImageService {
 			} catch (error) {
 				const message =
 					error instanceof Error ? error.message : 'Unknown error';
+				failures.push({ url, reason: message });
 				this.logger.warn(
 					`[FETCH_REFERENCE_ERROR] URL: ${url} | Error: ${message}`,
 				);
 			}
+		}
+
+		// Fix #6: Throw if ALL reference images failed
+		if (results.length === 0 && urls.length > 0) {
+			const errorDetails = failures
+				.map((f) => `  - ${f.url}: ${f.reason}`)
+				.join('\n');
+			throw new Error(
+				`All ${urls.length} reference image(s) failed to fetch:\n${errorDetails}`,
+			);
+		}
+
+		// Fix #6: Warn if some (but not all) references failed
+		if (failures.length > 0) {
+			this.logger.warn(
+				`[FETCH_REFERENCE_PARTIAL] Successfully fetched ${results.length}/${urls.length} reference images. ` +
+					`Failures: ${failures.map((f) => f.url).join(', ')}`,
+			);
 		}
 
 		return results;
@@ -232,6 +259,9 @@ export class GeminiImageService {
 			return {
 				imageData,
 				mimeType: imagePart.inlineData.mimeType || 'image/jpeg',
+				...(this.debugEnabled && {
+					debugData: { prompt },
+				}),
 			};
 		} catch (error) {
 			const totalTime = Date.now() - startTime;
@@ -509,9 +539,21 @@ export class GeminiImageService {
 				`[GEMINI_STITCH_COMPLETE] Size: ${stitchedImage.length} bytes | TotalTime: ${totalTime}ms`,
 			);
 
+			const editPrompt = `${prompt.replace(/\.$/, '')}. Do not modify the edges of the image.`;
+
 			return {
 				imageData: stitchedImage,
 				mimeType: 'image/png',
+				...(this.debugEnabled && {
+					debugData: {
+						'03-extractedTile': extracted.tile,
+						editPrompt,
+						'05-geminiResultTile': editResult.imageData,
+						fittedBoundingBox: extracted.fittedBoundingBox,
+						aspectRatio: extracted.aspectRatio,
+						imageSize: extracted.imageSize,
+					},
+				}),
 			};
 		} catch (error) {
 			const totalTime = Date.now() - startTime;
@@ -551,13 +593,22 @@ export class GeminiImageService {
 			);
 			const maskBuffer = Buffer.from(maskImageBase64, 'base64');
 
+			this.logger.log(
+				`[GEMINI_INPAINT_BUFFERS] Background: ${backgroundBuffer.length} bytes | Mask: ${maskBuffer.length} bytes`,
+			);
+
 			let maskedImage: Buffer;
 			let originalForStitch: Buffer | undefined;
 			let stitchBox: BoundingBox | undefined;
 			let extractedAspectRatio: string | undefined;
+			let extractedBgTile: Buffer | undefined;
+			let extractedMaskTile: Buffer | undefined;
 
 			if (boundingBox) {
 				// Combined mode: extract region, apply mask, then stitch back
+				this.logger.log(
+					`[GEMINI_INPAINT_REGION] BoundingBox mode: ${JSON.stringify(boundingBox)}`,
+				);
 				originalForStitch = backgroundBuffer;
 
 				const bgExtracted = await extractBoundingBox(
@@ -569,6 +620,13 @@ export class GeminiImageService {
 					boundingBox,
 				);
 
+				this.logger.log(
+					`[GEMINI_INPAINT_REGION] BG tile: ${bgExtracted.tile.length} bytes | Mask tile: ${maskExtracted.tile.length} bytes`,
+				);
+
+				extractedBgTile = bgExtracted.tile;
+				extractedMaskTile = maskExtracted.tile;
+
 				maskedImage = await combineMaskWithBackground(
 					bgExtracted.tile,
 					maskExtracted.tile,
@@ -577,11 +635,18 @@ export class GeminiImageService {
 				extractedAspectRatio = bgExtracted.aspectRatio;
 			} else {
 				// Full image mode: apply mask to entire background
+				this.logger.log(
+					`[GEMINI_INPAINT_FULL] Applying mask to full image (no bounding box)`,
+				);
 				maskedImage = await combineMaskWithBackground(
 					backgroundBuffer,
 					maskBuffer,
 				);
 			}
+
+			this.logger.log(
+				`[GEMINI_INPAINT_MASKED] Masked image: ${maskedImage.length} bytes (PNG with transparency)`,
+			);
 
 			// Build inpainting prompt
 			const inpaintingPrompt = `You are an expert photo editor. The user has provided an image with a transparent area and a text prompt.
@@ -593,8 +658,15 @@ export class GeminiImageService {
 
 **User's prompt:** "${prompt}"`;
 
+			this.logger.log(
+				`[GEMINI_INPAINT_PROMPT] Sending to Gemini editImage: "${inpaintingPrompt.substring(0, 120)}..."`,
+			);
+
 			// Send masked image to Gemini
 			const maskedBase64 = maskedImage.toString('base64');
+			this.logger.log(
+				`[GEMINI_INPAINT_SEND] MaskedBase64 length: ${maskedBase64.length} chars (~${Math.round((maskedBase64.length * 0.75) / 1024)}KB)`,
+			);
 			const editResult = await this.editImage(
 				maskedBase64,
 				inpaintingPrompt,
@@ -606,14 +678,40 @@ export class GeminiImageService {
 				},
 			);
 
+			this.logger.log(
+				`[GEMINI_INPAINT_RESULT] Gemini returned: ${editResult.imageData.length} bytes | MimeType: ${editResult.mimeType}`,
+			);
+
 			let finalImage = editResult.imageData;
+
+			// Collect debug data before stitching (so we capture the raw Gemini result)
+			let debugData: Record<string, Buffer | string | object> | undefined;
+			if (this.debugEnabled) {
+				debugData = {
+					'04-maskedImage': maskedImage,
+					inpaintingPrompt,
+					'05-geminiResult': editResult.imageData,
+				};
+				if (extractedBgTile) {
+					debugData['03-extractedBgTile'] = extractedBgTile;
+				}
+				if (extractedMaskTile) {
+					debugData['03-extractedMaskTile'] = extractedMaskTile;
+				}
+			}
 
 			// If we extracted a region, stitch the result back
 			if (originalForStitch && stitchBox) {
+				this.logger.log(
+					`[GEMINI_INPAINT_STITCH] Stitching result back into original at: ${JSON.stringify(stitchBox)}`,
+				);
 				finalImage = await stitchTileBack(
 					originalForStitch,
 					editResult.imageData,
 					stitchBox,
+				);
+				this.logger.log(
+					`[GEMINI_INPAINT_STITCH] Final stitched image: ${finalImage.length} bytes`,
 				);
 			}
 
@@ -626,6 +724,7 @@ export class GeminiImageService {
 			return {
 				imageData: finalImage,
 				mimeType: 'image/png',
+				...(debugData && { debugData }),
 			};
 		} catch (error) {
 			const totalTime = Date.now() - startTime;

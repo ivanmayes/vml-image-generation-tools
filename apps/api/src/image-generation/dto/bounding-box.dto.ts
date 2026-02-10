@@ -8,23 +8,23 @@ export class BoundingBoxDto implements BoundingBox {
 	@IsInt()
 	@Min(0)
 	@Max(10000)
-	left: number;
+	left!: number;
 
 	@ApiProperty({ description: 'Top offset in pixels' })
 	@IsInt()
 	@Min(0)
 	@Max(10000)
-	top: number;
+	top!: number;
 
 	@ApiProperty({ description: 'Width in pixels' })
 	@IsInt()
 	@Min(1)
 	@Max(10000)
-	width: number;
+	width!: number;
 
 	@ApiProperty({ description: 'Height in pixels' })
 	@IsInt()
 	@Min(1)
 	@Max(10000)
-	height: number;
+	height!: number;
 }

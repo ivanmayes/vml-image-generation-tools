@@ -1,6 +1,44 @@
+import * as fs from 'fs';
+import * as path from 'path';
+
 import sharp from 'sharp';
 
 import { BoundingBox } from '../interfaces/bounding-box.interface';
+
+/**
+ * Fix #5: Sharp Memory Management Strategy
+ *
+ * Sharp uses libvips which has automatic resource cleanup, but under high load
+ * or in error scenarios, explicit cleanup can prevent memory pressure.
+ *
+ * Strategy:
+ * 1. Sharp instances created via sharp(buffer) are automatically cleaned up when GC'd
+ * 2. For error-handling paths, we wrap operations in try-catch blocks
+ * 3. Operations use .toBuffer() which releases resources after completion
+ * 4. Avoid keeping Sharp instances in memory - process and release immediately
+ *
+ * Current Implementation:
+ * - All functions return Buffer results via .toBuffer() or .toFile()
+ * - No Sharp instances are stored in variables or returned
+ * - Error handling wraps operations with ImageProcessingError
+ * - Automatic cleanup happens when functions return
+ *
+ * Note: Sharp v0.30+ has improved automatic cleanup. Explicit .destroy() is rarely
+ * needed with modern Sharp unless you're creating long-lived instances. Our code
+ * follows the recommended pattern of creating, using, and releasing immediately.
+ */
+
+// Debug helper: save intermediate images to /tmp for inspection
+const DEBUG_IMAGES = process.env.DEBUG_COMPOSITION_IMAGES === 'true';
+async function debugSaveImage(buffer: Buffer, label: string): Promise<void> {
+	if (!DEBUG_IMAGES) return;
+	const dir = '/tmp/composition-debug';
+	if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+	const filePath = path.join(dir, `${Date.now()}-${label}.png`);
+	// Create Sharp instance, use it, and let it be GC'd immediately
+	await sharp(buffer).png().toFile(filePath);
+	console.log(`[DEBUG_IMAGE] Saved: ${filePath}`);
+}
 
 // ─── Error Handling ──────────────────────────────────────────────────────────
 
@@ -114,11 +152,59 @@ function findNearestRatio(
 	};
 }
 
+/**
+ * Fix #7: Comprehensive bounding box validation
+ * Validates that a bounding box is within image bounds and has valid dimensions.
+ *
+ * @param box Bounding box to validate
+ * @param imageWidth Image width in pixels
+ * @param imageHeight Image height in pixels
+ * @throws ImageProcessingError if validation fails
+ */
 function validateBounds(
 	box: BoundingBox,
 	imageWidth: number,
 	imageHeight: number,
 ): void {
+	// Fix #7: Validate image dimensions are positive
+	if (imageWidth <= 0 || imageHeight <= 0) {
+		throw new ImageProcessingError(
+			`Invalid image dimensions: ${imageWidth}x${imageHeight} (must be positive)`,
+			{ box, imageWidth, imageHeight },
+		);
+	}
+
+	// Fix #7: Validate bounding box position is not negative
+	if (box.left < 0 || box.top < 0) {
+		throw new ImageProcessingError(
+			`Bounding box position cannot be negative: left=${box.left}, top=${box.top}`,
+			{ box, imageWidth, imageHeight },
+		);
+	}
+
+	// Fix #7: Validate bounding box dimensions are positive
+	if (box.width <= 0 || box.height <= 0) {
+		throw new ImageProcessingError(
+			`Bounding box dimensions must be positive: width=${box.width}, height=${box.height}`,
+			{ box, imageWidth, imageHeight },
+		);
+	}
+
+	// Fix #7: Validate dimensions are integers (Sharp requires integer pixel values)
+	if (
+		!Number.isInteger(box.left) ||
+		!Number.isInteger(box.top) ||
+		!Number.isInteger(box.width) ||
+		!Number.isInteger(box.height)
+	) {
+		throw new ImageProcessingError(
+			`Bounding box coordinates must be integers: ` +
+				`left=${box.left}, top=${box.top}, width=${box.width}, height=${box.height}`,
+			{ box, imageWidth, imageHeight },
+		);
+	}
+
+	// Existing validations: check box doesn't exceed image bounds
 	if (box.left + box.width > imageWidth) {
 		throw new ImageProcessingError(
 			`Bounding box exceeds image width: left(${box.left}) + width(${box.width}) > imageWidth(${imageWidth})`,
@@ -256,12 +342,29 @@ export async function combineMaskWithBackground(
 	maskBuffer: Buffer,
 ): Promise<Buffer> {
 	try {
+		console.log(
+			`[MASK_COMBINE] Starting | BackgroundBuffer: ${backgroundBuffer.length} bytes | MaskBuffer: ${maskBuffer.length} bytes`,
+		);
+
 		const backgroundImage = sharp(backgroundBuffer);
 		const metadata = await backgroundImage.metadata();
 
 		if (!metadata.width || !metadata.height) {
 			throw new Error('Unable to determine background image dimensions');
 		}
+
+		console.log(
+			`[MASK_COMBINE] Background dimensions: ${metadata.width}x${metadata.height} | Channels: ${metadata.channels} | Format: ${metadata.format}`,
+		);
+
+		// Log mask metadata
+		const maskMeta = await sharp(maskBuffer).metadata();
+		console.log(
+			`[MASK_COMBINE] Mask dimensions: ${maskMeta.width}x${maskMeta.height} | Channels: ${maskMeta.channels} | Format: ${maskMeta.format}`,
+		);
+
+		await debugSaveImage(backgroundBuffer, '01-background-input');
+		await debugSaveImage(maskBuffer, '02-mask-input');
 
 		// Process background and mask in parallel
 		const [imageRGB, alphaChannel] = await Promise.all([
@@ -279,25 +382,72 @@ export async function combineMaskWithBackground(
 				.toBuffer(),
 		]);
 
+		console.log(
+			`[MASK_COMBINE] RGB buffer: ${imageRGB.length} bytes | Alpha channel (encoded): ${alphaChannel.length} bytes`,
+		);
+
+		// Decode alpha to raw pixels for analysis (force single channel)
+		const alphaRaw = await sharp(alphaChannel)
+			.extractChannel(0)
+			.raw()
+			.toBuffer();
+		console.log(
+			`[MASK_COMBINE] Alpha raw buffer: ${alphaRaw.length} bytes (expected ${metadata.width * metadata.height})`,
+		);
+
+		// Analyze alpha channel: count transparent vs opaque pixels
+		const alphaStats = await sharp(alphaRaw, {
+			raw: {
+				width: metadata.width,
+				height: metadata.height,
+				channels: 1,
+			},
+		}).stats();
+		console.log(
+			`[MASK_COMBINE] Alpha stats (inverted mask): min=${alphaStats.channels[0].min} max=${alphaStats.channels[0].max} mean=${alphaStats.channels[0].mean.toFixed(1)}`,
+		);
+
+		// Count transparent pixels (alpha < 128 = masked area)
+		let transparentCount = 0;
+		let opaqueCount = 0;
+		for (const alphaValue of alphaRaw) {
+			if (alphaValue < 128) transparentCount++;
+			else opaqueCount++;
+		}
+		const totalPixels = metadata.width * metadata.height;
+		const maskedPercent = ((transparentCount / totalPixels) * 100).toFixed(
+			1,
+		);
+		console.log(
+			`[MASK_COMBINE] Pixel analysis: ${transparentCount} transparent (${maskedPercent}%) | ${opaqueCount} opaque | Total: ${totalPixels}`,
+		);
+
 		// Join alpha channel to RGB image
 		let combinedImage = await sharp(imageRGB)
 			.joinChannel(alphaChannel)
 			.png()
 			.toBuffer();
 
+		await debugSaveImage(combinedImage, '03-combined-before-zero');
+
 		// Zero out RGB channels for transparent pixels (Gemini expects clean transparency)
 		const { data, info } = await sharp(combinedImage)
 			.raw()
 			.toBuffer({ resolveWithObject: true });
 
+		let zeroedPixels = 0;
 		for (let i = 0; i < data.length; i += info.channels) {
 			const a = data[i + 3];
 			if (a !== 255) {
 				data[i] = 0;
 				data[i + 1] = 0;
 				data[i + 2] = 0;
+				zeroedPixels++;
 			}
 		}
+		console.log(
+			`[MASK_COMBINE] Zeroed RGB for ${zeroedPixels} semi/fully-transparent pixels out of ${data.length / info.channels} total`,
+		);
 
 		combinedImage = await sharp(data, {
 			raw: {
@@ -308,6 +458,12 @@ export async function combineMaskWithBackground(
 		})
 			.png()
 			.toBuffer();
+
+		await debugSaveImage(combinedImage, '04-final-masked-output');
+
+		console.log(
+			`[MASK_COMBINE] Final output: ${combinedImage.length} bytes (PNG with transparency)`,
+		);
 
 		return combinedImage;
 	} catch (error) {

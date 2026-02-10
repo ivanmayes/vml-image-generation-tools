@@ -178,6 +178,20 @@ export class S3 {
 		}
 	}
 
+	public static getSignedUrl(key: string, expiresInSeconds = 3600): string {
+		AWS.config.update({
+			accessKeyId: this.s3Config.accessKeyId,
+			secretAccessKey: this.s3Config.secretAccessKey,
+		});
+
+		const s3 = new AWSS3();
+		return s3.getSignedUrl('getObject', {
+			Bucket: this.s3Config.bucketName,
+			Key: key,
+			Expires: expiresInSeconds,
+		});
+	}
+
 	private static generateFileName(originalName: string) {
 		const segments = originalName.match(/(.*)\.(.*)$/);
 
