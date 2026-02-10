@@ -9,6 +9,7 @@
 export type { AgentCreateDto } from '@api/agent/dtos';
 export type { AgentUpdateDto } from '@api/agent/dtos';
 export type { RagConfigDto } from '@api/agent/dtos';
+export type { BuiltInToolsConfigDto } from '@api/agent/dtos';
 
 // Import enums from API (these need to be value imports, not type imports)
 import {
@@ -19,12 +20,12 @@ import {
 } from '@api/agent/agent.entity';
 
 // Import types separately
-import type { RagConfig } from '@api/agent/agent.entity';
+import type { RagConfig, BuiltInToolsConfig } from '@api/agent/agent.entity';
 
 // Re-export for external use
 export { AgentType, ModelTier, ThinkingLevel, AgentStatus };
 
-export type { RagConfig };
+export type { RagConfig, BuiltInToolsConfig };
 
 // Enum option constants for dropdowns (mapping enums to label/value pairs)
 export const AGENT_TYPES: { label: string; value: string }[] = [
@@ -74,6 +75,7 @@ export interface Agent {
 	maxTokens?: number;
 	avatarUrl?: string;
 	judgePrompt?: string | null;
+	builtInTools?: BuiltInToolsConfig;
 }
 
 // AgentDocument interface matching API toPublic() response
