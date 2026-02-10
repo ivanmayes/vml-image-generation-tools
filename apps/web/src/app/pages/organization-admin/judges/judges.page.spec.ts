@@ -206,36 +206,19 @@ describe('JudgesPage', () => {
 		});
 	});
 
-	describe('Sort', () => {
-		it('should call loadAgents with sort params on column sort', () => {
+	describe('Default Sort', () => {
+		it('should load agents sorted by createdAt desc by default', () => {
 			createAndFlush();
 
-			component.onSort({ field: 'name', order: 1 });
+			component.loadAgents();
 
 			const req = httpTesting.expectOne(
 				(r) =>
 					r.url === `${baseUrl}/organization/${orgId}/agents` &&
-					r.params.get('sortBy') === 'name',
-			);
-			expect(req.request.params.get('order')).toBe('asc');
-			req.flush({ status: 'success', data: [] });
-		});
-
-		it('should toggle sort order between asc and desc', () => {
-			createAndFlush();
-
-			component.onSort({ field: 'name', order: -1 });
-
-			const req = httpTesting.expectOne(
-				(r) =>
-					r.url === `${baseUrl}/organization/${orgId}/agents` &&
-					r.params.get('sortBy') === 'name',
+					r.params.get('sortBy') === 'createdAt',
 			);
 			expect(req.request.params.get('order')).toBe('desc');
 			req.flush({ status: 'success', data: [] });
-
-			expect(component.currentSortField).toBe('name');
-			expect(component.currentSortOrder).toBe('desc');
 		});
 	});
 
@@ -269,8 +252,11 @@ describe('JudgesPage', () => {
 			vi.spyOn(localConfirmService, 'confirm');
 
 			const agent = createMockAgent({ id: 'del-1', name: 'To Delete' });
-			component.deleteAgent(agent);
+			const mockEvent = new Event('click');
+			vi.spyOn(mockEvent, 'stopPropagation');
+			component.deleteAgent(mockEvent, agent);
 
+			expect(mockEvent.stopPropagation).toHaveBeenCalled();
 			expect(localConfirmService.confirm).toHaveBeenCalledWith(
 				expect.objectContaining({
 					message: expect.stringContaining('To Delete'),
@@ -297,7 +283,7 @@ describe('JudgesPage', () => {
 			);
 
 			const agent = createMockAgent({ id: 'del-1' });
-			component.deleteAgent(agent);
+			component.deleteAgent(new Event('click'), agent);
 			acceptFn!();
 
 			// Expect DELETE request
@@ -338,7 +324,7 @@ describe('JudgesPage', () => {
 			);
 
 			const agent = createMockAgent({ id: 'del-fail' });
-			component.deleteAgent(agent);
+			component.deleteAgent(new Event('click'), agent);
 			acceptFn!();
 
 			const deleteReq = httpTesting.expectOne(
@@ -389,12 +375,27 @@ describe('JudgesPage', () => {
 	});
 
 	describe('Utilities', () => {
-		it('should format date strings', () => {
+		it('should return relative time strings', () => {
 			createAndFlush();
 
-			const formatted = component.formatDate('2025-06-15T00:00:00.000Z');
-			expect(formatted).toBeTruthy();
-			expect(formatted).toContain('2025');
+			const result = component.getRelativeTime(
+				'2025-06-15T00:00:00.000Z',
+			);
+			expect(result).toBeTruthy();
+			// Should be some time ago format like "7mo ago" or "8mo ago"
+			expect(result).toMatch(/\d+[mhdy]|just now|\d+mo ago/);
+		});
+
+		it('should return initials from name', () => {
+			createAndFlush();
+			expect(component.getInitials('Test Agent')).toBe('TA');
+			expect(component.getInitials('Single')).toBe('S');
+		});
+
+		it('should return avatar gradient from name', () => {
+			createAndFlush();
+			const gradient = component.getAvatarGradient('Test');
+			expect(gradient).toContain('linear-gradient');
 		});
 	});
 });

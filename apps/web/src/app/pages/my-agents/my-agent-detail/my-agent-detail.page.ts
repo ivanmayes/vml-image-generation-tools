@@ -2,6 +2,7 @@ import {
 	ChangeDetectionStrategy,
 	Component,
 	OnInit,
+	OnDestroy,
 	signal,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
@@ -15,6 +16,7 @@ import {
 import { ActivatedRoute, Router } from '@angular/router';
 import { MessageService } from 'primeng/api';
 import { ConfirmDialogModule } from 'primeng/confirmdialog';
+import { Subscription } from 'rxjs';
 
 import { AgentService } from '../../../shared/services/agent.service';
 import {
@@ -49,8 +51,44 @@ import { ImageEvaluatorComponent } from '../../../shared/components/image-evalua
 		ImageEvaluatorComponent,
 	],
 })
-export class MyAgentDetailPage implements OnInit {
+export class MyAgentDetailPage implements OnInit, OnDestroy {
 	private readonly AGENTS_LIST_ROUTE = '/my-agents';
+
+	readonly SYSTEM_PROMPT_TEMPLATE = `You are an expert image evaluation judge specializing in brand compliance and visual quality assessment.
+
+## YOUR EXPERTISE
+- Brand identity and guideline adherence
+- Product photography and composition
+- Color accuracy and consistency
+- Typography and label legibility
+- Lighting, shadows, and visual realism
+
+## EVALUATION CRITERIA
+
+When evaluating images, score each of these checklist items as pass/fail:
+- **Product Accuracy**: Does the product shape, size, and proportions match the real product?
+- **Label/Text Legibility**: Is all text on the product readable and correctly spelled?
+- **Color Fidelity**: Do brand colors match the official palette?
+- **Composition**: Is the product well-framed with appropriate negative space?
+- **Lighting Quality**: Is the lighting natural and consistent with no harsh artifacts?
+- **Background Appropriateness**: Does the background match the brief's requirements?
+- **Brand Consistency**: Does the overall image feel on-brand?
+
+## CATEGORY SCORES
+
+Provide individual scores (0-100) for these categories:
+- composition
+- color_accuracy
+- product_accuracy
+- text_legibility
+- lighting
+- brand_consistency
+
+## EVALUATION STYLE
+- Be precise and specific — reference exact visual elements ("the gold foil on the cap" not "the top part")
+- Compare against real product appearance when possible
+- Flag AI artifacts explicitly (distorted text, merged objects, impossible geometry)
+- Suggest actionable fixes that a prompt engineer can implement`;
 
 	loading = signal(false);
 	saving = signal(false);
@@ -60,8 +98,8 @@ export class MyAgentDetailPage implements OnInit {
 	loadingDocuments = signal(false);
 	uploadingDocument = signal(false);
 	availableAgents = signal<Agent[]>([]);
+	formDirty = signal(false);
 
-	// Enum options for dropdowns
 	readonly agentTypes = AGENT_TYPES;
 	readonly modelTiers = MODEL_TIERS;
 	readonly thinkingLevels = THINKING_LEVELS;
@@ -74,7 +112,6 @@ export class MyAgentDetailPage implements OnInit {
 		}),
 		description: new FormControl('', { nonNullable: true }),
 		canJudge: new FormControl(true, { nonNullable: true }),
-		// Status is stored as boolean in form for toggle switch, converted to enum on save
 		status: new FormControl(true, { nonNullable: true }),
 		avatarUrl: new FormControl('', { nonNullable: true }),
 		// Prompts
@@ -98,6 +135,10 @@ export class MyAgentDetailPage implements OnInit {
 		optimizationWeight: new FormControl(50, { nonNullable: true }),
 		scoringWeight: new FormControl(50, { nonNullable: true }),
 		judgePrompt: new FormControl<string | null>(null),
+		builtInToolsGoogleSearch: new FormControl(false, { nonNullable: true }),
+		builtInToolsCodeExecution: new FormControl(false, {
+			nonNullable: true,
+		}),
 		// Weights & RAG
 		templateId: new FormControl('', { nonNullable: true }),
 		ragTopK: new FormControl(5, { nonNullable: true }),
@@ -106,6 +147,7 @@ export class MyAgentDetailPage implements OnInit {
 
 	private organizationId = environment.organizationId;
 	private agentId: string | null = null;
+	private formSub: Subscription | null = null;
 
 	constructor(
 		private readonly agentService: AgentService,
@@ -127,6 +169,14 @@ export class MyAgentDetailPage implements OnInit {
 		}
 
 		this.loadAvailableAgents();
+
+		this.formSub = this.form.valueChanges.subscribe(() => {
+			this.formDirty.set(true);
+		});
+	}
+
+	ngOnDestroy(): void {
+		this.formSub?.unsubscribe();
 	}
 
 	private loadAvailableAgents(): void {
@@ -169,6 +219,10 @@ export class MyAgentDetailPage implements OnInit {
 					capabilities: agentData.capabilities || [],
 					teamAgentIds: agentData.teamAgentIds || [],
 					judgePrompt: agentData.judgePrompt ?? null,
+					builtInToolsGoogleSearch:
+						agentData.builtInTools?.googleSearch ?? false,
+					builtInToolsCodeExecution:
+						agentData.builtInTools?.codeExecution ?? false,
 					templateId: agentData.templateId || '',
 					optimizationWeight: agentData.optimizationWeight ?? 50,
 					scoringWeight: agentData.scoringWeight ?? 50,
@@ -176,6 +230,7 @@ export class MyAgentDetailPage implements OnInit {
 					ragSimilarityThreshold:
 						agentData.ragConfig?.similarityThreshold ?? 0.7,
 				});
+				this.formDirty.set(false);
 				this.loading.set(false);
 				this.loadDocuments(agentData.id);
 			},
@@ -219,11 +274,10 @@ export class MyAgentDetailPage implements OnInit {
 				status: formValue.status
 					? AgentStatus.ACTIVE
 					: AgentStatus.INACTIVE,
-				agentType: formValue.agentType as AgentType | undefined,
-				modelTier: formValue.modelTier as ModelTier | undefined,
-				thinkingLevel: formValue.thinkingLevel as
-					| ThinkingLevel
-					| undefined,
+				agentType: (formValue.agentType as AgentType) ?? undefined,
+				modelTier: (formValue.modelTier as ModelTier) ?? undefined,
+				thinkingLevel:
+					(formValue.thinkingLevel as ThinkingLevel) ?? undefined,
 				teamPrompt: formValue.teamPrompt || undefined,
 				capabilities: formValue.capabilities.length
 					? formValue.capabilities
@@ -235,6 +289,10 @@ export class MyAgentDetailPage implements OnInit {
 				maxTokens: formValue.maxTokens ?? undefined,
 				avatarUrl: formValue.avatarUrl || undefined,
 				judgePrompt: formValue.judgePrompt || undefined,
+				builtInTools: {
+					googleSearch: formValue.builtInToolsGoogleSearch,
+					codeExecution: formValue.builtInToolsCodeExecution,
+				},
 			};
 			this.agentService.createAgent(this.organizationId, dto).subscribe({
 				next: () => {
@@ -245,6 +303,7 @@ export class MyAgentDetailPage implements OnInit {
 						life: 3000,
 					});
 					this.saving.set(false);
+					this.formDirty.set(false);
 					this.router.navigate([this.AGENTS_LIST_ROUTE]);
 				},
 				error: (error) => {
@@ -276,11 +335,10 @@ export class MyAgentDetailPage implements OnInit {
 				status: formValue.status
 					? AgentStatus.ACTIVE
 					: AgentStatus.INACTIVE,
-				agentType: formValue.agentType as AgentType | undefined,
-				modelTier: formValue.modelTier as ModelTier | undefined,
-				thinkingLevel: formValue.thinkingLevel as
-					| ThinkingLevel
-					| undefined,
+				agentType: (formValue.agentType as AgentType) ?? undefined,
+				modelTier: (formValue.modelTier as ModelTier) ?? undefined,
+				thinkingLevel:
+					(formValue.thinkingLevel as ThinkingLevel) ?? undefined,
 				teamPrompt: formValue.teamPrompt || undefined,
 				capabilities: formValue.capabilities.length
 					? formValue.capabilities
@@ -295,6 +353,10 @@ export class MyAgentDetailPage implements OnInit {
 					formValue.judgePrompt === ''
 						? null
 						: formValue.judgePrompt || undefined,
+				builtInTools: {
+					googleSearch: formValue.builtInToolsGoogleSearch,
+					codeExecution: formValue.builtInToolsCodeExecution,
+				},
 			};
 			this.agentService
 				.updateAgent(this.organizationId, this.agentId!, dto)
@@ -307,6 +369,7 @@ export class MyAgentDetailPage implements OnInit {
 							life: 3000,
 						});
 						this.saving.set(false);
+						this.formDirty.set(false);
 						this.router.navigate([this.AGENTS_LIST_ROUTE]);
 					},
 					error: (error) => {
@@ -413,5 +476,35 @@ export class MyAgentDetailPage implements OnInit {
 			month: 'short',
 			day: 'numeric',
 		});
+	}
+
+	getInitials(name: string): string {
+		return name
+			.split(/\s+/)
+			.slice(0, 2)
+			.map((w) => w[0]?.toUpperCase() ?? '')
+			.join('');
+	}
+
+	loadSystemPromptTemplate(): void {
+		const current = this.form.get('systemPrompt')?.value?.trim();
+		if (current) {
+			const confirmed = confirm(
+				'This will replace your current system prompt with a template. Continue?',
+			);
+			if (!confirmed) return;
+		}
+		this.form.get('systemPrompt')?.setValue(this.SYSTEM_PROMPT_TEMPLATE);
+		this.form.get('systemPrompt')?.markAsDirty();
+		this.formDirty.set(true);
+	}
+
+	getAvatarGradient(name: string): string {
+		let hash = 0;
+		for (let i = 0; i < name.length; i++) {
+			hash = name.charCodeAt(i) + ((hash << 5) - hash);
+		}
+		const hue = Math.abs(hash) % 360;
+		return `linear-gradient(135deg, hsl(${hue}, 65%, 55%) 0%, hsl(${(hue + 40) % 360}, 60%, 45%) 100%)`;
 	}
 }

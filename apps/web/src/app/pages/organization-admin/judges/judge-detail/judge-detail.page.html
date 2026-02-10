@@ -1,18 +1,52 @@
-<div class="judge-detail-page">
-	<div class="page-header mb-4">
-		<button
-			pButton
-			icon="pi pi-arrow-left"
-			label="Back to Agents"
-			aria-label="Back to Agents"
-			class="p-button-text"
-			(click)="goBack()"
-		></button>
-
-		<h1>
-			@if (isCreateMode()) { Create Agent } @else { Edit Agent: {{
-			agent()?.name }} }
-		</h1>
+<div class="agent-detail-page">
+	<!-- Header -->
+	<div class="detail-header">
+		<div class="detail-header__nav">
+			<p-button
+				icon="pi pi-arrow-left"
+				[rounded]="true"
+				[text]="true"
+				(onClick)="goBack()"
+				pTooltip="Back to Agents"
+			/>
+			<nav class="detail-header__breadcrumb">
+				<!-- eslint-disable-next-line @angular-eslint/template/click-events-have-key-events, @angular-eslint/template/interactive-supports-focus -->
+				<a class="detail-header__breadcrumb-link" (click)="goBack()">
+					Agents
+				</a>
+				<i
+					class="pi pi-chevron-right detail-header__breadcrumb-sep"
+				></i>
+				<span class="detail-header__breadcrumb-current">
+					@if (isCreateMode()) { New Agent } @else { {{ agent()?.name
+					|| 'Loading...' }} }
+				</span>
+			</nav>
+		</div>
+		<div class="detail-header__title-row">
+			@if (!isCreateMode() && agent()) {
+			<div class="detail-header__avatar">
+				@if (agent()?.avatarUrl) {
+				<p-avatar
+					[image]="agent()!.avatarUrl!"
+					size="large"
+					shape="circle"
+				/>
+				} @else {
+				<div
+					class="detail-header__avatar-placeholder"
+					[style.background]="getAvatarGradient(agent()!.name)"
+				>
+					{{ getInitials(agent()!.name) }}
+				</div>
+				}
+			</div>
+			}
+			<h1 class="heading-page m-0">
+				@if (isCreateMode()) { Create Agent } @else { {{ agent()?.name
+				}} }
+			</h1>
+		</div>
 	</div>
 
 	@if (loading()) {
@@ -22,21 +56,22 @@
 	} @else {
 	<p-tabs value="0">
 		<p-tablist>
-			<p-tab value="0">General</p-tab>
-			<p-tab value="1">Prompts</p-tab>
-			<p-tab value="2">Model Configuration</p-tab>
-			<p-tab value="3">Team & Capabilities</p-tab>
-			<p-tab value="4">Judging</p-tab>
-			<p-tab value="5">Weights & RAG</p-tab>
-			<p-tab value="6">Documents</p-tab>
-			<p-tab value="7">Test / Evaluate</p-tab>
+			<p-tab value="0">Overview</p-tab>
+			<p-tab value="1">Configuration</p-tab>
+			<p-tab value="2">Judging</p-tab>
+			<p-tab value="3">Documents</p-tab>
+			<p-tab value="4">Test</p-tab>
 		</p-tablist>
 
 		<form [formGroup]="form">
 			<p-tabpanels>
-				<!-- Tab 0: General -->
+				<!-- Tab 0: Overview (General + Prompts) -->
 				<p-tabpanel value="0">
 					<div class="form-container">
+						<h2 class="heading-section section-heading">
+							Identity
+						</h2>
+
 						<div class="field">
 							<label for="name">Name *</label>
 							<input
@@ -110,34 +145,25 @@
 							</div>
 						</div>
 
-						<div class="form-actions">
-							<button
-								pButton
-								label="Cancel"
-								aria-label="Cancel"
-								class="p-button-outlined"
-								(click)="cancel()"
-								type="button"
-							></button>
-							<button
-								pButton
-								[label]="saving() ? 'Saving...' : 'Save'"
-								aria-label="Save"
-								icon="pi pi-check"
-								(click)="save()"
-								[disabled]="saving() || form.invalid"
-								[loading]="saving()"
-								type="button"
-							></button>
-						</div>
-					</div>
-				</p-tabpanel>
+						<p-divider></p-divider>
 
-				<!-- Tab 1: Prompts -->
-				<p-tabpanel value="1">
-					<div class="form-container">
+						<h2 class="heading-section section-heading">Prompts</h2>
+
 						<div class="field">
-							<label for="systemPrompt">System Prompt *</label>
+							<div class="label-row">
+								<label for="systemPrompt"
+									>System Prompt *</label
+								>
+								<p-button
+									icon="pi pi-file-edit"
+									label="Insert Example"
+									[text]="true"
+									size="small"
+									(onClick)="loadSystemPromptTemplate()"
+									pTooltip="Insert a best-practices judge prompt template to edit"
+									tooltipPosition="left"
+								/>
+							</div>
 							<textarea
 								id="systemPrompt"
 								pTextarea
@@ -187,33 +213,14 @@
 								behavior</small
 							>
 						</div>
-
-						<div class="form-actions">
-							<button
-								pButton
-								label="Cancel"
-								aria-label="Cancel"
-								class="p-button-outlined"
-								(click)="cancel()"
-								type="button"
-							></button>
-							<button
-								pButton
-								[label]="saving() ? 'Saving...' : 'Save'"
-								aria-label="Save"
-								icon="pi pi-check"
-								(click)="save()"
-								[disabled]="saving() || form.invalid"
-								[loading]="saving()"
-								type="button"
-							></button>
-						</div>
 					</div>
 				</p-tabpanel>
 
-				<!-- Tab 2: Model Configuration -->
-				<p-tabpanel value="2">
+				<!-- Tab 1: Configuration (Model + Team & Capabilities + Weights & RAG) -->
+				<p-tabpanel value="1">
 					<div class="form-container">
+						<h2 class="heading-section section-heading">Model</h2>
+
 						<div class="field">
 							<label for="agentType">Agent Type</label>
 							<p-select
@@ -294,32 +301,48 @@
 							></p-inputNumber>
 						</div>
 
-						<div class="form-actions">
-							<button
-								pButton
-								label="Cancel"
-								aria-label="Cancel"
-								class="p-button-outlined"
-								(click)="cancel()"
-								type="button"
-							></button>
-							<button
-								pButton
-								[label]="saving() ? 'Saving...' : 'Save'"
-								aria-label="Save"
-								icon="pi pi-check"
-								(click)="save()"
-								[disabled]="saving() || form.invalid"
-								[loading]="saving()"
-								type="button"
-							></button>
-						</div>
-					</div>
-				</p-tabpanel>
+						<p-divider></p-divider>
 
-				<!-- Tab 3: Team & Capabilities -->
-				<p-tabpanel value="3">
-					<div class="form-container">
+						<h2 class="heading-section section-heading">
+							Built-in Tools
+						</h2>
+
+						<div class="toggle-row">
+							<div class="toggle-field">
+								<p-toggleSwitch
+									formControlName="builtInToolsGoogleSearch"
+									inputId="builtInToolsGoogleSearch"
+								></p-toggleSwitch>
+								<label for="builtInToolsGoogleSearch">
+									Google Search
+								</label>
+								<small class="helper-text"
+									>Verify brand accuracy against real product
+									images (~$0.035/query)</small
+								>
+							</div>
+
+							<div class="toggle-field">
+								<p-toggleSwitch
+									formControlName="builtInToolsCodeExecution"
+									inputId="builtInToolsCodeExecution"
+								></p-toggleSwitch>
+								<label for="builtInToolsCodeExecution">
+									Code Execution
+								</label>
+								<small class="helper-text"
+									>Measure colors, proportions, and layout
+									with Python (free)</small
+								>
+							</div>
+						</div>
+
+						<p-divider></p-divider>
+
+						<h2 class="heading-section section-heading">
+							Team & Capabilities
+						</h2>
+
 						<div class="field">
 							<label for="capabilities">Capabilities</label>
 							<p-autocomplete
@@ -356,36 +379,70 @@
 							>
 						</div>
 
-						<div class="form-actions">
-							<button
-								pButton
-								label="Cancel"
-								aria-label="Cancel"
-								class="p-button-outlined"
-								(click)="cancel()"
-								type="button"
-							></button>
-							<button
-								pButton
-								[label]="saving() ? 'Saving...' : 'Save'"
-								aria-label="Save"
-								icon="pi pi-check"
-								(click)="save()"
-								[disabled]="saving() || form.invalid"
-								[loading]="saving()"
-								type="button"
-							></button>
+						<p-divider></p-divider>
+
+						<h2 class="heading-section section-heading">
+							Weights & RAG
+						</h2>
+
+						<div class="field">
+							<label for="templateId">Template ID</label>
+							<input
+								id="templateId"
+								pInputText
+								formControlName="templateId"
+								placeholder="Optional template identifier"
+								class="w-full"
+							/>
+						</div>
+
+						<h3>RAG Configuration</h3>
+
+						<div class="field-row">
+							<div class="field">
+								<label for="ragTopK">Top K Results</label>
+								<p-inputNumber
+									formControlName="ragTopK"
+									[min]="1"
+									[max]="20"
+									[showButtons]="true"
+									inputId="ragTopK"
+								></p-inputNumber>
+								<small class="helper-text"
+									>Number of similar documents to retrieve
+									(1-20)</small
+								>
+							</div>
+
+							<div class="field">
+								<label for="ragSimilarityThreshold"
+									>Similarity Threshold</label
+								>
+								<p-inputNumber
+									formControlName="ragSimilarityThreshold"
+									[min]="0"
+									[max]="1"
+									[step]="0.05"
+									[minFractionDigits]="2"
+									[maxFractionDigits]="2"
+									[showButtons]="true"
+									inputId="ragSimilarityThreshold"
+								></p-inputNumber>
+								<small class="helper-text"
+									>Minimum similarity score (0-1)</small
+								>
+							</div>
 						</div>
 					</div>
 				</p-tabpanel>
 
-				<!-- Tab 4: Judging -->
-				<p-tabpanel value="4">
+				<!-- Tab 2: Judging -->
+				<p-tabpanel value="2">
 					<div class="form-container">
 						@if (!form.get('canJudge')?.value) {
 						<p-message severity="warn">
 							This agent has judging disabled. Enable "Can Judge"
-							on the General tab to use these settings.
+							on the Overview tab to use these settings.
 						</p-message>
 						}
 
@@ -463,109 +520,15 @@
 								automatically.</small
 							>
 						</div>
-
-						<div class="form-actions">
-							<button
-								pButton
-								label="Cancel"
-								aria-label="Cancel"
-								class="p-button-outlined"
-								(click)="cancel()"
-								type="button"
-							></button>
-							<button
-								pButton
-								[label]="saving() ? 'Saving...' : 'Save'"
-								aria-label="Save"
-								icon="pi pi-check"
-								(click)="save()"
-								[disabled]="saving() || form.invalid"
-								[loading]="saving()"
-								type="button"
-							></button>
-						</div>
 					</div>
 				</p-tabpanel>
 
-				<!-- Tab 5: Weights & RAG -->
-				<p-tabpanel value="5">
+				<!-- Tab 3: Documents -->
+				<p-tabpanel value="3">
 					<div class="form-container">
-						<div class="field">
-							<label for="templateId">Template ID</label>
-							<input
-								id="templateId"
-								pInputText
-								formControlName="templateId"
-								placeholder="Optional template identifier"
-								class="w-full"
-							/>
-						</div>
-
-						<h3>RAG Configuration</h3>
-
-						<div class="field-row">
-							<div class="field">
-								<label for="ragTopK">Top K Results</label>
-								<p-inputNumber
-									formControlName="ragTopK"
-									[min]="1"
-									[max]="20"
-									[showButtons]="true"
-									inputId="ragTopK"
-								></p-inputNumber>
-								<small class="helper-text"
-									>Number of similar documents to retrieve
-									(1-20)</small
-								>
-							</div>
-
-							<div class="field">
-								<label for="ragSimilarityThreshold"
-									>Similarity Threshold</label
-								>
-								<p-inputNumber
-									formControlName="ragSimilarityThreshold"
-									[min]="0"
-									[max]="1"
-									[step]="0.05"
-									[minFractionDigits]="2"
-									[maxFractionDigits]="2"
-									[showButtons]="true"
-									inputId="ragSimilarityThreshold"
-								></p-inputNumber>
-								<small class="helper-text"
-									>Minimum similarity score (0-1)</small
-								>
-							</div>
-						</div>
-
-						<div class="form-actions">
-							<button
-								pButton
-								label="Cancel"
-								aria-label="Cancel"
-								class="p-button-outlined"
-								(click)="cancel()"
-								type="button"
-							></button>
-							<button
-								pButton
-								[label]="saving() ? 'Saving...' : 'Save'"
-								aria-label="Save"
-								icon="pi pi-check"
-								(click)="save()"
-								[disabled]="saving() || form.invalid"
-								[loading]="saving()"
-								type="button"
-							></button>
-						</div>
-					</div>
-				</p-tabpanel>
-
-				<!-- Tab 6: Documents -->
-				<p-tabpanel value="6">
-					<div class="form-container">
-						<h3>Documents</h3>
+						<h2 class="heading-section section-heading">
+							Documents
+						</h2>
 
 						@if (isCreateMode()) {
 						<p-message severity="info"
@@ -639,8 +602,8 @@
 					</div>
 				</p-tabpanel>
 
-				<!-- Tab 7: Test / Evaluate -->
-				<p-tabpanel value="7">
+				<!-- Tab 4: Test / Evaluate -->
+				<p-tabpanel value="4">
 					<div class="form-container">
 						@if (isCreateMode()) {
 						<p-message severity="info"
@@ -658,7 +621,33 @@
 			</p-tabpanels>
 		</form>
 	</p-tabs>
-	}
+
+	<!-- Sticky save footer -->
+	@if (formDirty() || isCreateMode()) {
+	<div class="save-footer">
+		<div class="save-footer__status">
+			@if (formDirty()) {
+			<span class="save-footer__dirty-dot"></span>
+			<span>Unsaved changes</span>
+			}
+		</div>
+		<div class="save-footer__actions">
+			<p-button
+				label="Cancel"
+				severity="secondary"
+				[outlined]="true"
+				(onClick)="cancel()"
+			/>
+			<p-button
+				[label]="saving() ? 'Saving...' : 'Save'"
+				icon="pi pi-check"
+				(onClick)="save()"
+				[disabled]="saving() || form.invalid"
+				[loading]="saving()"
+			/>
+		</div>
+	</div>
+	} }
 </div>
 
 <p-toast></p-toast>

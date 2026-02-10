@@ -1,8 +1,8 @@
 <div class="judges-page">
-	<h1 class="mb-4">Agents</h1>
-
-	<p-toolbar styleClass="mb-4">
-		<ng-template pTemplate="start">
+	<!-- Header -->
+	<div class="list-header">
+		<h1 class="heading-page m-0">Agents</h1>
+		<div class="list-header__actions">
 			<p-iconfield iconPosition="left">
 				<p-inputicon styleClass="pi pi-search"></p-inputicon>
 				<input
@@ -10,148 +10,181 @@
 					type="text"
 					(input)="onSearch($event)"
 					placeholder="Search agents..."
-					class="w-80"
+					class="list-header__search"
 				/>
 			</p-iconfield>
-		</ng-template>
-		<ng-template pTemplate="end">
-			<button
-				pButton
+			<p-button
 				label="Create Agent"
 				icon="pi pi-plus"
-				(click)="navigateToCreate()"
-				aria-label="Create Agent"
-			></button>
-		</ng-template>
-	</p-toolbar>
+				(onClick)="navigateToCreate()"
+			/>
+		</div>
+	</div>
 
-	<p-table
-		[value]="loading() ? skeletonRows : agents()"
-		[paginator]="true"
-		[rows]="10"
-		[showCurrentPageReport]="true"
-		currentPageReportTemplate="Showing {first} to {last} of {totalRecords} agents"
-		styleClass="p-datatable-striped"
-		(onSort)="onSort($event)"
-	>
-		<ng-template pTemplate="header">
-			<tr>
-				<th [pSortableColumn]="'name'" class="cursor-pointer">
-					Name <p-sortIcon [field]="'name'"></p-sortIcon>
-				</th>
-				<th>Status</th>
-				<th>Type</th>
-				<th>Can Judge</th>
-				<th>Model</th>
-				<th [pSortableColumn]="'createdAt'" class="cursor-pointer">
-					Created <p-sortIcon [field]="'createdAt'"></p-sortIcon>
-				</th>
-				<th style="width: 150px">Actions</th>
-			</tr>
-		</ng-template>
+	<!-- Loading skeleton -->
+	@if (loading()) {
+	<div class="agent-grid">
+		@for (card of skeletonCards; track $index) {
+		<div class="agent-card agent-card--skeleton">
+			<div class="agent-card__header skeleton-shimmer"></div>
+			<div class="agent-card__body">
+				<div
+					class="skeleton-shimmer"
+					style="height: 16px; width: 70%; margin-bottom: 8px"
+				></div>
+				<div
+					class="skeleton-shimmer"
+					style="height: 14px; width: 90%; margin-bottom: 4px"
+				></div>
+				<div
+					class="skeleton-shimmer"
+					style="height: 14px; width: 55%; margin-bottom: 12px"
+				></div>
+				<div
+					class="skeleton-shimmer"
+					style="height: 12px; width: 80%"
+				></div>
+			</div>
+		</div>
+		}
+	</div>
+	}
 
-		<ng-template pTemplate="body" let-agent>
-			@if (!loading()) {
-			<tr>
-				<td>
-					<button
-						type="button"
-						class="agent-name-link p-link"
-						(click)="navigateToDetail(agent.id)"
+	<!-- Content -->
+	@if (!loading()) {
+	<!-- Empty state -->
+	@if (agents().length === 0) {
+	<div class="list-empty">
+		<div class="list-empty__icon">
+			<i class="pi pi-users"></i>
+		</div>
+		<h3 class="heading-section mb-2">No agents yet</h3>
+		<p class="text-color-secondary mb-4">
+			Create your first agent to start evaluating and generating images.
+		</p>
+		<p-button
+			label="Create your first agent"
+			icon="pi pi-plus"
+			(onClick)="navigateToCreate()"
+		/>
+	</div>
+	} @else {
+	<!-- Card grid -->
+	<div class="agent-grid">
+		@for (agent of agents(); track agent.id) {
+		<div
+			class="agent-card"
+			role="button"
+			tabindex="0"
+			(click)="navigateToDetail(agent.id)"
+			(keydown.enter)="navigateToDetail(agent.id)"
+		>
+			<!-- Avatar header -->
+			<div class="agent-card__header">
+				@if (agent.avatarUrl) {
+				<img
+					[src]="agent.avatarUrl"
+					[alt]="agent.name"
+					class="agent-card__avatar-img"
+				/>
+				} @else {
+				<div
+					class="agent-card__avatar-placeholder"
+					[style.background]="getAvatarGradient(agent.name)"
+				>
+					<span class="agent-card__initials"
+						>{{ getInitials(agent.name) }}</span
 					>
-						{{ agent.name }}
-					</button>
-				</td>
-				<td>
-					<p-tag
-						[value]="agent.status || 'ACTIVE'"
-						[severity]="agent.status === 'INACTIVE' ? 'secondary' : 'success'"
-					></p-tag>
-				</td>
-				<td>
-					@if (agent.agentType) {
-					<p-tag [value]="agent.agentType" severity="info"></p-tag>
-					} @else {
-					<span class="text-muted">-</span>
-					}
-				</td>
-				<td>
-					@if (agent.canJudge !== false) {
-					<i
-						class="pi pi-check"
-						style="color: var(--p-green-500)"
-					></i>
-					} @else {
-					<i
-						class="pi pi-times"
-						style="color: var(--p-text-color-secondary)"
-					></i>
-					}
-				</td>
-				<td>
-					@if (agent.modelTier) { {{ agent.modelTier }} } @else {
-					<span class="text-muted">-</span>
-					}
-				</td>
-				<td>{{ formatDate(agent.createdAt) }}</td>
-				<td>
-					<div class="action-buttons">
-						<button
-							pButton
-							icon="pi pi-pencil"
-							class="p-button-rounded p-button-text p-button-sm"
-							pTooltip="Edit Agent"
-							aria-label="Edit Agent"
-							(click)="navigateToDetail(agent.id)"
-						></button>
-						<button
-							pButton
-							icon="pi pi-trash"
-							class="p-button-rounded p-button-text p-button-sm p-button-danger"
-							pTooltip="Delete Agent"
-							aria-label="Delete Agent"
-							(click)="deleteAgent(agent)"
-						></button>
-					</div>
-				</td>
-			</tr>
-			} @else {
-			<tr>
-				<td><p-skeleton /></td>
-				<td><p-skeleton /></td>
-				<td><p-skeleton /></td>
-				<td><p-skeleton /></td>
-				<td><p-skeleton /></td>
-				<td><p-skeleton /></td>
-				<td><p-skeleton /></td>
-			</tr>
-			}
-		</ng-template>
+				</div>
+				}
+			</div>
 
-		<ng-template pTemplate="emptymessage">
-			<tr>
-				<td colspan="7" class="text-center">
-					<div class="empty-state">
-						<i
-							class="pi pi-inbox"
-							style="
-								font-size: 3rem;
-								color: var(--text-color-secondary);
+			<!-- Body -->
+			<div class="agent-card__body">
+				<div class="agent-card__name">{{ agent.name }}</div>
+
+				@if (agent.description) {
+				<div class="agent-card__desc">{{ agent.description }}</div>
+				} @else {
+				<div class="agent-card__desc agent-card__desc--empty">
+					No description
+				</div>
+				}
+
+				<!-- Meta bar -->
+				<div class="agent-card__meta">
+					<span class="agent-card__meta-item">
+						<span
+							class="agent-card__status-dot"
+							[class.agent-card__status-dot--active]="
+								agent.status !== 'INACTIVE'
 							"
-						></i>
-						<p>No agents found</p>
-						<button
-							pButton
-							label="Create an Agent"
-							icon="pi pi-plus"
-							(click)="navigateToCreate()"
-							aria-label="Create an Agent"
-						></button>
-					</div>
-				</td>
-			</tr>
-		</ng-template>
-	</p-table>
+							[class.agent-card__status-dot--inactive]="
+								agent.status === 'INACTIVE'
+							"
+						></span>
+						{{ agent.status === 'INACTIVE' ? 'Inactive' : 'Active'
+						}}
+					</span>
+
+					@if (agent.agentType) {
+					<span class="agent-card__meta-item">
+						<i class="pi pi-tag"></i>
+						{{ getAgentTypeLabel(agent.agentType) }}
+					</span>
+					} @if (agent.modelTier) {
+					<span class="agent-card__meta-item">
+						<i class="pi pi-microchip-ai"></i>
+						{{ agent.modelTier }}
+					</span>
+					} @if (agent.canJudge) {
+					<span
+						class="agent-card__meta-item agent-card__meta-item--judge"
+					>
+						<i class="pi pi-check-circle"></i>
+						Judge
+					</span>
+					}
+
+					<span
+						class="agent-card__meta-item"
+						[pTooltip]="
+							(agent.createdAt | date : 'medium')!
+						"
+						tooltipPosition="top"
+					>
+						<i class="pi pi-clock"></i>
+						{{ getRelativeTime(agent.createdAt) }}
+					</span>
+				</div>
+			</div>
+
+			<!-- Actions -->
+			<!-- eslint-disable-next-line @angular-eslint/template/click-events-have-key-events, @angular-eslint/template/interactive-supports-focus -->
+			<div class="agent-card__actions" (click)="$event.stopPropagation()">
+				<p-button
+					icon="pi pi-pencil"
+					[rounded]="true"
+					[text]="true"
+					severity="secondary"
+					size="small"
+					(onClick)="navigateToDetail(agent.id)"
+					pTooltip="Edit"
+				/>
+				<p-button
+					icon="pi pi-trash"
+					[rounded]="true"
+					[text]="true"
+					severity="danger"
+					size="small"
+					(onClick)="deleteAgent($event, agent)"
+					pTooltip="Delete"
+				/>
+			</div>
+		</div>
+		}
+	</div>
+	} }
 </div>
 
 <p-confirmDialog></p-confirmDialog>

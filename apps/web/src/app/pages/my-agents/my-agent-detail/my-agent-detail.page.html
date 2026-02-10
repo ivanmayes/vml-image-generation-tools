@@ -1,18 +1,52 @@
-<div class="my-agent-detail-page">
-	<div class="page-header mb-4">
-		<button
-			pButton
-			icon="pi pi-arrow-left"
-			label="Back to My Agents"
-			aria-label="Back to My Agents"
-			class="p-button-text"
-			(click)="goBack()"
-		></button>
-
-		<h1>
-			@if (isCreateMode()) { Create Agent } @else { Edit Agent: {{
-			agent()?.name }} }
-		</h1>
+<div class="agent-detail-page">
+	<!-- Header -->
+	<div class="detail-header">
+		<div class="detail-header__nav">
+			<p-button
+				icon="pi pi-arrow-left"
+				[rounded]="true"
+				[text]="true"
+				(onClick)="goBack()"
+				pTooltip="Back to My Agents"
+			/>
+			<nav class="detail-header__breadcrumb">
+				<!-- eslint-disable-next-line @angular-eslint/template/click-events-have-key-events, @angular-eslint/template/interactive-supports-focus -->
+				<a class="detail-header__breadcrumb-link" (click)="goBack()">
+					My Agents
+				</a>
+				<i
+					class="pi pi-chevron-right detail-header__breadcrumb-sep"
+				></i>
+				<span class="detail-header__breadcrumb-current">
+					@if (isCreateMode()) { New Agent } @else { {{ agent()?.name
+					|| 'Loading...' }} }
+				</span>
+			</nav>
+		</div>
+		<div class="detail-header__title-row">
+			@if (!isCreateMode() && agent()) {
+			<div class="detail-header__avatar">
+				@if (agent()?.avatarUrl) {
+				<p-avatar
+					[image]="agent()!.avatarUrl!"
+					size="large"
+					shape="circle"
+				/>
+				} @else {
+				<div
+					class="detail-header__avatar-placeholder"
+					[style.background]="getAvatarGradient(agent()!.name)"
+				>
+					{{ getInitials(agent()!.name) }}
+				</div>
+				}
+			</div>
+			}
+			<h1 class="heading-page m-0">
+				@if (isCreateMode()) { Create Agent } @else { {{ agent()?.name
+				}} }
+			</h1>
+		</div>
 	</div>
 
 	@if (loading()) {
@@ -22,28 +56,36 @@
 	} @else {
 	<p-tabs value="0">
 		<p-tablist>
-			<p-tab value="0">General</p-tab>
-			<p-tab value="1">Prompts</p-tab>
-			<p-tab value="2">Model Configuration</p-tab>
-			<p-tab value="3">Team & Capabilities</p-tab>
-			<p-tab value="4">Judging</p-tab>
-			<p-tab value="5">Weights & RAG</p-tab>
-			<p-tab value="6">Documents</p-tab>
-			<p-tab value="7">Test / Evaluate</p-tab>
+			<p-tab value="0">Overview</p-tab>
+			<p-tab value="1">Configuration</p-tab>
+			<p-tab value="2">Judging</p-tab>
+			<p-tab value="3">Documents</p-tab>
+			<p-tab value="4">Test</p-tab>
 		</p-tablist>
 
 		<form [formGroup]="form">
 			<p-tabpanels>
-				<!-- Tab 0: General -->
+				<!-- Tab 0: Overview (General + Prompts) -->
 				<p-tabpanel value="0">
 					<div class="form-container">
+						<h2 class="heading-section section-heading">
+							Identity
+						</h2>
+
 						<div class="field">
-							<label for="name">Name *</label>
+							<label for="name" class="label-with-help">
+								Name *
+								<i
+									class="pi pi-question-circle help-icon"
+									pTooltip="A unique, descriptive name for this agent. Used in judge selection lists, team composition, and evaluation reports."
+									tooltipPosition="right"
+								></i>
+							</label>
 							<input
 								id="name"
 								pInputText
 								formControlName="name"
-								placeholder="Enter agent name"
+								placeholder="e.g. Brand Expert - Absolut Vodka"
 								class="w-full"
 							/>
 							@if (form.get('name')?.invalid &&
@@ -53,14 +95,21 @@
 						</div>
 
 						<div class="field">
-							<label for="description">Description</label>
+							<label for="description" class="label-with-help">
+								Description
+								<i
+									class="pi pi-question-circle help-icon"
+									pTooltip="A brief summary of this agent's purpose and specialization. Helps team members understand what this agent is designed to evaluate or generate."
+									tooltipPosition="right"
+								></i>
+							</label>
 							<textarea
 								id="description"
 								pTextarea
 								formControlName="description"
 								[autoResize]="true"
 								[rows]="3"
-								placeholder="Brief description of this agent's purpose"
+								placeholder="e.g. Specializes in luxury spirits photography with focus on lighting and label accuracy"
 								class="w-full"
 							></textarea>
 						</div>
@@ -71,7 +120,14 @@
 									formControlName="status"
 									inputId="status"
 								></p-toggleSwitch>
-								<label for="status">Active</label>
+								<label for="status" class="label-with-help">
+									Active
+									<i
+										class="pi pi-question-circle help-icon"
+										pTooltip="When inactive, this agent is excluded from all evaluations and generation requests. Useful for temporarily disabling an agent without deleting it."
+										tooltipPosition="top"
+									></i>
+								</label>
 								<small class="helper-text"
 									>Inactive agents are excluded from
 									evaluations</small
@@ -83,7 +139,14 @@
 									formControlName="canJudge"
 									inputId="canJudge"
 								></p-toggleSwitch>
-								<label for="canJudge">Can Judge</label>
+								<label for="canJudge" class="label-with-help">
+									Can Judge
+									<i
+										class="pi pi-question-circle help-icon"
+										pTooltip="When enabled, this agent appears in the judge selection list for generation requests. Judges evaluate generated images and provide scores and feedback."
+										tooltipPosition="top"
+									></i>
+								</label>
 								<small class="helper-text"
 									>Enable to use as evaluation judge</small
 								>
@@ -91,7 +154,14 @@
 						</div>
 
 						<div class="field">
-							<label for="avatarUrl">Avatar URL</label>
+							<label for="avatarUrl" class="label-with-help">
+								Avatar URL
+								<i
+									class="pi pi-question-circle help-icon"
+									pTooltip="Direct URL to an image used as this agent's avatar. Displayed in lists and detail views. Use a square image for best results."
+									tooltipPosition="right"
+								></i>
+							</label>
 							<div class="avatar-preview-row">
 								<input
 									id="avatarUrl"
@@ -110,41 +180,40 @@
 							</div>
 						</div>
 
-						<div class="form-actions">
-							<button
-								pButton
-								label="Cancel"
-								aria-label="Cancel"
-								class="p-button-outlined"
-								(click)="cancel()"
-								type="button"
-							></button>
-							<button
-								pButton
-								[label]="saving() ? 'Saving...' : 'Save'"
-								aria-label="Save"
-								icon="pi pi-check"
-								(click)="save()"
-								[disabled]="saving() || form.invalid"
-								[loading]="saving()"
-								type="button"
-							></button>
-						</div>
-					</div>
-				</p-tabpanel>
+						<p-divider></p-divider>
 
-				<!-- Tab 1: Prompts -->
-				<p-tabpanel value="1">
-					<div class="form-container">
+						<h2 class="heading-section section-heading">Prompts</h2>
+
 						<div class="field">
-							<label for="systemPrompt">System Prompt *</label>
+							<div class="label-row">
+								<label
+									for="systemPrompt"
+									class="label-with-help"
+								>
+									System Prompt *
+									<i
+										class="pi pi-question-circle help-icon"
+										pTooltip="The core instructions that define this agent's personality, expertise, and behavior. This prompt is sent as the system message in every AI interaction. Be specific about the agent's domain knowledge, evaluation criteria, and response style."
+										tooltipPosition="right"
+									></i>
+								</label>
+								<p-button
+									icon="pi pi-file-edit"
+									label="Insert Example"
+									[text]="true"
+									size="small"
+									(onClick)="loadSystemPromptTemplate()"
+									pTooltip="Insert a best-practices judge prompt template to edit"
+									tooltipPosition="left"
+								/>
+							</div>
 							<textarea
 								id="systemPrompt"
 								pTextarea
 								formControlName="systemPrompt"
 								[autoResize]="true"
 								[rows]="10"
-								placeholder="Enter the system prompt for this agent..."
+								placeholder="You are an expert image evaluator specializing in..."
 								class="w-full system-prompt-textarea"
 							></textarea>
 							@if (form.get('systemPrompt')?.invalid &&
@@ -152,28 +221,47 @@
 							<small class="p-error"
 								>System prompt is required.</small
 							>
+							} @else {
+							<small class="helper-text"
+								>Required. This is the foundation of how the
+								agent thinks and responds.</small
+							>
 							}
 						</div>
 
 						<div class="field">
-							<label for="teamPrompt">Team Prompt</label>
+							<label for="teamPrompt" class="label-with-help">
+								Team Prompt
+								<i
+									class="pi pi-question-circle help-icon"
+									pTooltip="Additional context injected when this agent works alongside other agents in a team evaluation. Use this to define how the agent should collaborate, defer to specialists, or weight its own expertise relative to teammates."
+									tooltipPosition="right"
+								></i>
+							</label>
 							<textarea
 								id="teamPrompt"
 								pTextarea
 								formControlName="teamPrompt"
 								[autoResize]="true"
 								[rows]="5"
-								placeholder="Additional context when agent works in a team..."
+								placeholder="When evaluating as part of a team, focus on your area of expertise and defer to other judges on..."
 								class="w-full"
 							></textarea>
 							<small class="helper-text"
-								>Prompt context when agent works in a
-								team</small
+								>Only used during multi-judge
+								evaluations.</small
 							>
 						</div>
 
 						<div class="field">
-							<label for="aiSummary">AI Summary</label>
+							<label for="aiSummary" class="label-with-help">
+								AI Summary
+								<i
+									class="pi pi-question-circle help-icon"
+									pTooltip="An auto-generated summary of this agent's behavior based on its system prompt. This is created by AI analysis and cannot be edited directly."
+									tooltipPosition="right"
+								></i>
+							</label>
 							<textarea
 								id="aiSummary"
 								pTextarea
@@ -187,35 +275,23 @@
 								behavior</small
 							>
 						</div>
-
-						<div class="form-actions">
-							<button
-								pButton
-								label="Cancel"
-								aria-label="Cancel"
-								class="p-button-outlined"
-								(click)="cancel()"
-								type="button"
-							></button>
-							<button
-								pButton
-								[label]="saving() ? 'Saving...' : 'Save'"
-								aria-label="Save"
-								icon="pi pi-check"
-								(click)="save()"
-								[disabled]="saving() || form.invalid"
-								[loading]="saving()"
-								type="button"
-							></button>
-						</div>
 					</div>
 				</p-tabpanel>
 
-				<!-- Tab 2: Model Configuration -->
-				<p-tabpanel value="2">
+				<!-- Tab 1: Configuration (Model + Team & Capabilities + Weights & RAG) -->
+				<p-tabpanel value="1">
 					<div class="form-container">
+						<h2 class="heading-section section-heading">Model</h2>
+
 						<div class="field">
-							<label for="agentType">Agent Type</label>
+							<label for="agentType" class="label-with-help">
+								Agent Type
+								<i
+									class="pi pi-question-circle help-icon"
+									pTooltip="Expert agents provide deep domain-specific evaluations with detailed technical feedback. Audience agents simulate how a typical viewer would perceive the image, focusing on overall appeal and first impressions."
+									tooltipPosition="right"
+								></i>
+							</label>
 							<p-select
 								formControlName="agentType"
 								[options]="agentTypes"
@@ -226,10 +302,21 @@
 								inputId="agentType"
 								class="w-full"
 							></p-select>
+							<small class="helper-text"
+								>Expert for technical analysis, Audience for
+								consumer perspective.</small
+							>
 						</div>
 
 						<div class="field">
-							<label for="modelTier">Model Tier</label>
+							<label for="modelTier" class="label-with-help">
+								Model Tier
+								<i
+									class="pi pi-question-circle help-icon"
+									pTooltip="Pro uses a larger, more capable model for nuanced evaluations but costs more per request. Flash uses a smaller, faster model ideal for quick assessments and high-volume evaluations."
+									tooltipPosition="right"
+								></i>
+							</label>
 							<p-select
 								formControlName="modelTier"
 								[options]="modelTiers"
@@ -240,10 +327,21 @@
 								inputId="modelTier"
 								class="w-full"
 							></p-select>
+							<small class="helper-text"
+								>Pro is slower but more thorough. Flash is 3-5x
+								faster and cheaper.</small
+							>
 						</div>
 
 						<div class="field">
-							<label for="thinkingLevel">Thinking Level</label>
+							<label for="thinkingLevel" class="label-with-help">
+								Thinking Level
+								<i
+									class="pi pi-question-circle help-icon"
+									pTooltip="Controls how much internal reasoning the AI performs before responding. Higher thinking levels produce more thorough analysis but increase latency and cost. Low is instant, High adds a deliberation step."
+									tooltipPosition="right"
+								></i>
+							</label>
 							<p-select
 								formControlName="thinkingLevel"
 								[options]="thinkingLevels"
@@ -254,10 +352,21 @@
 								inputId="thinkingLevel"
 								class="w-full"
 							></p-select>
+							<small class="helper-text"
+								>Higher levels improve quality for complex
+								evaluations.</small
+							>
 						</div>
 
 						<div class="field">
-							<label for="temperature">Temperature</label>
+							<label for="temperature" class="label-with-help">
+								Temperature
+								<i
+									class="pi pi-question-circle help-icon"
+									pTooltip="Controls randomness in AI responses. Lower values (0-0.3) produce consistent, focused output. Higher values (0.7-2.0) produce more creative, varied responses. For judging, lower values ensure reliable scoring."
+									tooltipPosition="right"
+								></i>
+							</label>
 							<div class="slider-input-row">
 								@if (form.get('temperature')?.value !== null) {
 								<p-slider
@@ -280,10 +389,21 @@
 									placeholder="Default"
 								></p-inputNumber>
 							</div>
+							<small class="helper-text"
+								>Recommended: 0.2-0.4 for judges, 0.7-1.0 for
+								creative agents.</small
+							>
 						</div>
 
 						<div class="field">
-							<label for="maxTokens">Max Tokens</label>
+							<label for="maxTokens" class="label-with-help">
+								Max Tokens
+								<i
+									class="pi pi-question-circle help-icon"
+									pTooltip="Maximum number of tokens (roughly words) the AI can generate in a single response. Higher limits allow more detailed feedback but increase cost. Most evaluations need 500-2000 tokens."
+									tooltipPosition="right"
+								></i>
+							</label>
 							<p-inputNumber
 								formControlName="maxTokens"
 								[min]="1"
@@ -292,36 +412,79 @@
 								inputId="maxTokens"
 								placeholder="Default"
 							></p-inputNumber>
+							<small class="helper-text"
+								>Leave empty to use the model's default
+								limit.</small
+							>
 						</div>
 
-						<div class="form-actions">
-							<button
-								pButton
-								label="Cancel"
-								aria-label="Cancel"
-								class="p-button-outlined"
-								(click)="cancel()"
-								type="button"
-							></button>
-							<button
-								pButton
-								[label]="saving() ? 'Saving...' : 'Save'"
-								aria-label="Save"
-								icon="pi pi-check"
-								(click)="save()"
-								[disabled]="saving() || form.invalid"
-								[loading]="saving()"
-								type="button"
-							></button>
-						</div>
-					</div>
-				</p-tabpanel>
+						<p-divider></p-divider>
 
-				<!-- Tab 3: Team & Capabilities -->
-				<p-tabpanel value="3">
-					<div class="form-container">
+						<h2 class="heading-section section-heading">
+							Built-in Tools
+						</h2>
+
+						<div class="toggle-row">
+							<div class="toggle-field">
+								<p-toggleSwitch
+									formControlName="builtInToolsGoogleSearch"
+									inputId="builtInToolsGoogleSearch"
+								></p-toggleSwitch>
+								<label
+									for="builtInToolsGoogleSearch"
+									class="label-with-help"
+								>
+									Google Search
+									<i
+										class="pi pi-question-circle help-icon"
+										pTooltip="Enables Gemini's built-in Google Search grounding. The agent can search the web to verify real product appearance, brand accuracy, and factual claims. Adds ~$0.035/query."
+										tooltipPosition="top"
+									></i>
+								</label>
+								<small class="helper-text"
+									>Verify brand accuracy against real product
+									images</small
+								>
+							</div>
+
+							<div class="toggle-field">
+								<p-toggleSwitch
+									formControlName="builtInToolsCodeExecution"
+									inputId="builtInToolsCodeExecution"
+								></p-toggleSwitch>
+								<label
+									for="builtInToolsCodeExecution"
+									class="label-with-help"
+								>
+									Code Execution
+									<i
+										class="pi pi-question-circle help-icon"
+										pTooltip="Enables Gemini's built-in Python code execution. The agent can run code to objectively measure color distances (Delta E), aspect ratios, and composition metrics. No additional cost."
+										tooltipPosition="top"
+									></i>
+								</label>
+								<small class="helper-text"
+									>Measure colors, proportions, and layout
+									with Python</small
+								>
+							</div>
+						</div>
+
+						<p-divider></p-divider>
+
+						<h2 class="heading-section section-heading">
+							Team & Capabilities
+						</h2>
+
 						<div class="field">
-							<label for="capabilities">Capabilities</label>
+							<label for="capabilities" class="label-with-help">
+								Capabilities
+								<i
+									class="pi pi-question-circle help-icon"
+									pTooltip="Freeform tags describing what this agent specializes in. Used for filtering and team composition. Examples: photography, branding, color-theory, typography, product-shots."
+									tooltipPosition="right"
+								></i>
+							</label>
 							<p-autocomplete
 								formControlName="capabilities"
 								inputId="capabilities"
@@ -329,16 +492,24 @@
 								[typeahead]="false"
 								[addOnBlur]="true"
 								[addOnTab]="true"
-								placeholder="Type and press Enter to add"
+								placeholder="Type a capability and press Enter"
 								fluid
 							></p-autocomplete>
 							<small class="helper-text"
-								>Tags describing what this agent can do</small
+								>Press Enter or Tab after each tag. Used for
+								filtering and team matching.</small
 							>
 						</div>
 
 						<div class="field">
-							<label for="teamAgentIds">Team Members</label>
+							<label for="teamAgentIds" class="label-with-help">
+								Team Members
+								<i
+									class="pi pi-question-circle help-icon"
+									pTooltip="Select other agents that form a team with this agent. Team members share context during multi-judge evaluations and can collaborate on complex assessments."
+									tooltipPosition="right"
+								></i>
+							</label>
 							<p-multiSelect
 								formControlName="teamAgentIds"
 								[options]="availableAgents()"
@@ -351,161 +522,51 @@
 								class="w-full"
 							></p-multiSelect>
 							<small class="helper-text"
-								>Other agents that work together with this
-								agent</small
+								>Team members receive the Team Prompt as
+								additional context.</small
 							>
-						</div>
-
-						<div class="form-actions">
-							<button
-								pButton
-								label="Cancel"
-								aria-label="Cancel"
-								class="p-button-outlined"
-								(click)="cancel()"
-								type="button"
-							></button>
-							<button
-								pButton
-								[label]="saving() ? 'Saving...' : 'Save'"
-								aria-label="Save"
-								icon="pi pi-check"
-								(click)="save()"
-								[disabled]="saving() || form.invalid"
-								[loading]="saving()"
-								type="button"
-							></button>
-						</div>
-					</div>
-				</p-tabpanel>
-
-				<!-- Tab 4: Judging -->
-				<p-tabpanel value="4">
-					<div class="form-container">
-						@if (!form.get('canJudge')?.value) {
-						<p-message severity="warn">
-							This agent has judging disabled. Enable "Can Judge"
-							on the General tab to use these settings.
-						</p-message>
-						}
-
-						<div class="field">
-							<label for="evaluationCategories"
-								>Evaluation Categories</label
-							>
-							<textarea
-								id="evaluationCategories"
-								pTextarea
-								formControlName="evaluationCategories"
-								[autoResize]="true"
-								[rows]="3"
-								placeholder="e.g. composition, lighting, color accuracy"
-								class="w-full"
-							></textarea>
-							<small class="helper-text"
-								>Comma-separated categories for evaluation
-								scoring</small
-							>
-						</div>
-
-						<div class="field-row">
-							<div class="field">
-								<label for="optimizationWeight"
-									>Optimization Weight</label
-								>
-								<p-inputNumber
-									formControlName="optimizationWeight"
-									[min]="0"
-									[max]="100"
-									[showButtons]="true"
-									inputId="optimizationWeight"
-								></p-inputNumber>
-								<small class="helper-text"
-									>Weight for prompt optimization
-									feedback</small
-								>
-							</div>
-
-							<div class="field">
-								<label for="scoringWeight"
-									>Scoring Weight</label
-								>
-								<p-inputNumber
-									formControlName="scoringWeight"
-									[min]="0"
-									[max]="100"
-									[showButtons]="true"
-									inputId="scoringWeight"
-								></p-inputNumber>
-								<small class="helper-text"
-									>Weight for aggregate score
-									calculation</small
-								>
-							</div>
 						</div>
 
 						<p-divider></p-divider>
 
-						<div class="field">
-							<label for="judgePrompt">Judge Prompt</label>
-							<textarea
-								id="judgePrompt"
-								pTextarea
-								formControlName="judgePrompt"
-								[autoResize]="true"
-								[rows]="8"
-								placeholder="Leave empty to use the system default judge template. Enter a custom prompt to override how this agent formats evaluation output."
-								class="w-full system-prompt-textarea"
-							></textarea>
-							<small class="helper-text"
-								>Custom evaluation output format. When empty, a
-								shared system template is used
-								automatically.</small
-							>
-						</div>
+						<h2 class="heading-section section-heading">
+							Weights & RAG
+						</h2>
 
-						<div class="form-actions">
-							<button
-								pButton
-								label="Cancel"
-								aria-label="Cancel"
-								class="p-button-outlined"
-								(click)="cancel()"
-								type="button"
-							></button>
-							<button
-								pButton
-								[label]="saving() ? 'Saving...' : 'Save'"
-								aria-label="Save"
-								icon="pi pi-check"
-								(click)="save()"
-								[disabled]="saving() || form.invalid"
-								[loading]="saving()"
-								type="button"
-							></button>
-						</div>
-					</div>
-				</p-tabpanel>
-
-				<!-- Tab 5: Weights & RAG -->
-				<p-tabpanel value="5">
-					<div class="form-container">
 						<div class="field">
-							<label for="templateId">Template ID</label>
+							<label for="templateId" class="label-with-help">
+								Template ID
+								<i
+									class="pi pi-question-circle help-icon"
+									pTooltip="Links this agent to a predefined prompt template. Templates provide structured evaluation formats that the agent follows. Leave empty to use the system prompt directly."
+									tooltipPosition="right"
+								></i>
+							</label>
 							<input
 								id="templateId"
 								pInputText
 								formControlName="templateId"
-								placeholder="Optional template identifier"
+								placeholder="e.g. spirits-v2, cosmetics-standard"
 								class="w-full"
 							/>
+							<small class="helper-text"
+								>Optional. Only needed if your organization uses
+								prompt templates.</small
+							>
 						</div>
 
 						<h3>RAG Configuration</h3>
 
 						<div class="field-row">
 							<div class="field">
-								<label for="ragTopK">Top K Results</label>
+								<label for="ragTopK" class="label-with-help">
+									Top K Results
+									<i
+										class="pi pi-question-circle help-icon"
+										pTooltip="Number of the most relevant document chunks retrieved from the agent's uploaded documents during each evaluation. Higher values provide more context but may include less relevant information."
+										tooltipPosition="right"
+									></i>
+								</label>
 								<p-inputNumber
 									formControlName="ragTopK"
 									[min]="1"
@@ -514,15 +575,23 @@
 									inputId="ragTopK"
 								></p-inputNumber>
 								<small class="helper-text"
-									>Number of similar documents to retrieve
-									(1-20)</small
+									>How many document chunks to retrieve per
+									query (1-20).</small
 								>
 							</div>
 
 							<div class="field">
-								<label for="ragSimilarityThreshold"
-									>Similarity Threshold</label
+								<label
+									for="ragSimilarityThreshold"
+									class="label-with-help"
 								>
+									Similarity Threshold
+									<i
+										class="pi pi-question-circle help-icon"
+										pTooltip="Minimum cosine similarity score a document chunk must have to be included in the agent's context. Higher values (closer to 1.0) return only highly relevant matches. Lower values cast a wider net."
+										tooltipPosition="right"
+									></i>
+								</label>
 								<p-inputNumber
 									formControlName="ragSimilarityThreshold"
 									[min]="0"
@@ -534,38 +603,139 @@
 									inputId="ragSimilarityThreshold"
 								></p-inputNumber>
 								<small class="helper-text"
-									>Minimum similarity score (0-1)</small
+									>0.5 = broad matching, 0.8 = strict
+									relevance, 0.95 = near-exact.</small
 								>
 							</div>
-						</div>
-
-						<div class="form-actions">
-							<button
-								pButton
-								label="Cancel"
-								aria-label="Cancel"
-								class="p-button-outlined"
-								(click)="cancel()"
-								type="button"
-							></button>
-							<button
-								pButton
-								[label]="saving() ? 'Saving...' : 'Save'"
-								aria-label="Save"
-								icon="pi pi-check"
-								(click)="save()"
-								[disabled]="saving() || form.invalid"
-								[loading]="saving()"
-								type="button"
-							></button>
 						</div>
 					</div>
 				</p-tabpanel>
 
-				<!-- Tab 6: Documents -->
-				<p-tabpanel value="6">
+				<!-- Tab 2: Judging -->
+				<p-tabpanel value="2">
 					<div class="form-container">
-						<h3>Documents</h3>
+						@if (!form.get('canJudge')?.value) {
+						<p-message severity="warn">
+							This agent has judging disabled. Enable "Can Judge"
+							on the Overview tab to use these settings.
+						</p-message>
+						}
+
+						<div class="field">
+							<label
+								for="evaluationCategories"
+								class="label-with-help"
+							>
+								Evaluation Categories
+								<i
+									class="pi pi-question-circle help-icon"
+									pTooltip="Comma-separated list of scoring dimensions the judge evaluates. Each category receives an individual score in the evaluation output. Common categories include composition, lighting, color accuracy, brand consistency, and text legibility."
+									tooltipPosition="right"
+								></i>
+							</label>
+							<textarea
+								id="evaluationCategories"
+								pTextarea
+								formControlName="evaluationCategories"
+								[autoResize]="true"
+								[rows]="3"
+								placeholder="e.g. composition, lighting, color accuracy, brand consistency, text legibility"
+								class="w-full"
+							></textarea>
+							<small class="helper-text"
+								>Each category gets a separate score. Use
+								consistent names across judges for comparable
+								results.</small
+							>
+						</div>
+
+						<div class="field-row">
+							<div class="field">
+								<label
+									for="optimizationWeight"
+									class="label-with-help"
+								>
+									Optimization Weight
+									<i
+										class="pi pi-question-circle help-icon"
+										pTooltip="How much influence this judge's feedback has on prompt optimization between iterations. A weight of 100 means maximum influence, 0 means this judge's feedback is ignored during optimization."
+										tooltipPosition="right"
+									></i>
+								</label>
+								<p-inputNumber
+									formControlName="optimizationWeight"
+									[min]="0"
+									[max]="100"
+									[showButtons]="true"
+									inputId="optimizationWeight"
+								></p-inputNumber>
+								<small class="helper-text"
+									>Higher = more influence on how prompts are
+									refined between iterations.</small
+								>
+							</div>
+
+							<div class="field">
+								<label
+									for="scoringWeight"
+									class="label-with-help"
+								>
+									Scoring Weight
+									<i
+										class="pi pi-question-circle help-icon"
+										pTooltip="How much this judge's score counts toward the aggregate score that determines if the threshold is met. Use this to give specialist judges more or less influence on the final pass/fail decision."
+										tooltipPosition="right"
+									></i>
+								</label>
+								<p-inputNumber
+									formControlName="scoringWeight"
+									[min]="0"
+									[max]="100"
+									[showButtons]="true"
+									inputId="scoringWeight"
+								></p-inputNumber>
+								<small class="helper-text"
+									>Higher = more influence on the final
+									aggregate score.</small
+								>
+							</div>
+						</div>
+
+						<p-divider></p-divider>
+
+						<div class="field">
+							<label for="judgePrompt" class="label-with-help">
+								Judge Prompt
+								<i
+									class="pi pi-question-circle help-icon"
+									pTooltip="Custom template that controls how this judge formats its evaluation output. When empty, a shared system template is used that produces structured JSON with scores, feedback, and a top issue. Override only if you need a specialized output format."
+									tooltipPosition="right"
+								></i>
+							</label>
+							<textarea
+								id="judgePrompt"
+								pTextarea
+								formControlName="judgePrompt"
+								[autoResize]="true"
+								[rows]="8"
+								placeholder="Leave empty to use the default evaluation template. Enter a custom prompt to control how this judge structures its feedback and scoring output."
+								class="w-full system-prompt-textarea"
+							></textarea>
+							<small class="helper-text"
+								>Custom evaluation output format. When empty, a
+								shared system template is used
+								automatically.</small
+							>
+						</div>
+					</div>
+				</p-tabpanel>
+
+				<!-- Tab 3: Documents -->
+				<p-tabpanel value="3">
+					<div class="form-container">
+						<h2 class="heading-section section-heading">
+							Documents
+						</h2>
 
 						@if (isCreateMode()) {
 						<p-message severity="info"
@@ -639,8 +809,8 @@
 					</div>
 				</p-tabpanel>
 
-				<!-- Tab 7: Test / Evaluate -->
-				<p-tabpanel value="7">
+				<!-- Tab 4: Test / Evaluate -->
+				<p-tabpanel value="4">
 					<div class="form-container">
 						@if (isCreateMode()) {
 						<p-message severity="info"
@@ -658,7 +828,33 @@
 			</p-tabpanels>
 		</form>
 	</p-tabs>
-	}
+
+	<!-- Sticky save footer -->
+	@if (formDirty() || isCreateMode()) {
+	<div class="save-footer">
+		<div class="save-footer__status">
+			@if (formDirty()) {
+			<span class="save-footer__dirty-dot"></span>
+			<span>Unsaved changes</span>
+			}
+		</div>
+		<div class="save-footer__actions">
+			<p-button
+				label="Cancel"
+				severity="secondary"
+				[outlined]="true"
+				(onClick)="cancel()"
+			/>
+			<p-button
+				[label]="saving() ? 'Saving...' : 'Save'"
+				icon="pi pi-check"
+				(onClick)="save()"
+				[disabled]="saving() || form.invalid"
+				[loading]="saving()"
+			/>
+		</div>
+	</div>
+	} }
 </div>
 
 <p-toast></p-toast>

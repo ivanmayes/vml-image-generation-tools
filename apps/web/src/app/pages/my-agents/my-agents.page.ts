@@ -26,17 +26,14 @@ import { PrimeNgModule } from '../../shared/primeng.module';
 	providers: [ConfirmationService],
 })
 export class MyAgentsPage implements OnInit, OnDestroy {
-	// Signals for zoneless
 	agents = signal<Agent[]>([]);
 	loading = signal(false);
 
 	organizationId!: string;
-	currentSortField = 'createdAt';
-	currentSortOrder = 'desc';
 	currentSearchQuery = '';
 	private searchSubject = new Subject<string>();
 	private searchSubscription: Subscription;
-	readonly skeletonRows = Array(5).fill({});
+	readonly skeletonCards = Array(6).fill({});
 
 	constructor(
 		private readonly agentService: AgentService,
@@ -44,7 +41,6 @@ export class MyAgentsPage implements OnInit, OnDestroy {
 		private readonly confirmationService: ConfirmationService,
 		private readonly router: Router,
 	) {
-		// Debounce search input by 400ms
 		this.searchSubscription = this.searchSubject
 			.pipe(debounceTime(400), distinctUntilChanged())
 			.subscribe((query) => {
@@ -61,21 +57,14 @@ export class MyAgentsPage implements OnInit, OnDestroy {
 		}
 	}
 
-	loadAgents(
-		searchQuery?: string,
-		sortField?: string,
-		sortOrder?: string,
-	): void {
+	loadAgents(searchQuery?: string): void {
 		this.loading.set(true);
 
-		// Use provided values or fall back to current state
 		const query =
 			searchQuery !== undefined ? searchQuery : this.currentSearchQuery;
-		const field = sortField || this.currentSortField;
-		const order = sortOrder || this.currentSortOrder;
 
 		this.agentService
-			.getAgents(this.organizationId, query, field, order)
+			.getAgents(this.organizationId, query, 'createdAt', 'desc')
 			.subscribe({
 				next: (response) => {
 					this.agents.set(response.data || []);
@@ -104,16 +93,6 @@ export class MyAgentsPage implements OnInit, OnDestroy {
 		this.searchSubject.complete();
 	}
 
-	onSort(event: { field: string; order: number }): void {
-		this.currentSortField = event.field;
-		this.currentSortOrder = event.order === 1 ? 'asc' : 'desc';
-		this.loadAgents(
-			this.currentSearchQuery,
-			this.currentSortField,
-			this.currentSortOrder,
-		);
-	}
-
 	navigateToCreate(): void {
 		this.router.navigate(['/my-agents/new']);
 	}
@@ -122,7 +101,8 @@ export class MyAgentsPage implements OnInit, OnDestroy {
 		this.router.navigate(['/my-agents', agentId]);
 	}
 
-	deleteAgent(agent: Agent): void {
+	deleteAgent(event: Event, agent: Agent): void {
+		event.stopPropagation();
 		this.confirmationService.confirm({
 			message: `Are you sure you want to delete the agent "${agent.name}"? This action cannot be undone.`,
 			header: 'Confirm Delete',
@@ -154,7 +134,46 @@ export class MyAgentsPage implements OnInit, OnDestroy {
 		});
 	}
 
-	formatDate(dateString: string): string {
-		return new Date(dateString).toLocaleDateString();
+	getInitials(name: string): string {
+		return name
+			.split(/\s+/)
+			.slice(0, 2)
+			.map((w) => w[0]?.toUpperCase() ?? '')
+			.join('');
+	}
+
+	getAvatarGradient(name: string): string {
+		let hash = 0;
+		for (let i = 0; i < name.length; i++) {
+			hash = name.charCodeAt(i) + ((hash << 5) - hash);
+		}
+		const hue = Math.abs(hash) % 360;
+		return `linear-gradient(135deg, hsl(${hue}, 65%, 55%) 0%, hsl(${(hue + 40) % 360}, 60%, 45%) 100%)`;
+	}
+
+	getRelativeTime(dateStr: string | Date): string {
+		const now = Date.now();
+		const then = new Date(dateStr).getTime();
+		const diff = now - then;
+
+		const minutes = Math.floor(diff / 60000);
+		if (minutes < 1) return 'just now';
+		if (minutes < 60) return `${minutes}m ago`;
+
+		const hours = Math.floor(minutes / 60);
+		if (hours < 24) return `${hours}h ago`;
+
+		const days = Math.floor(hours / 24);
+		if (days < 30) return `${days}d ago`;
+
+		const months = Math.floor(days / 30);
+		if (months < 12) return `${months}mo ago`;
+
+		return `${Math.floor(months / 12)}y ago`;
+	}
+
+	getAgentTypeLabel(type?: string): string {
+		if (!type) return '';
+		return type === 'EXPERT' ? 'Expert' : 'Audience';
 	}
 }
