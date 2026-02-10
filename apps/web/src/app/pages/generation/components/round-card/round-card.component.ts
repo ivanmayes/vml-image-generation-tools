@@ -2,6 +2,7 @@ import {
 	ChangeDetectionStrategy,
 	Component,
 	input,
+	output,
 	signal,
 	OnInit,
 } from '@angular/core';
@@ -12,6 +13,7 @@ import {
 	GeneratedImage,
 } from '../../../../shared/models/generation-request.model';
 import { PrimeNgModule } from '../../../../shared/primeng.module';
+import { MarkdownPipe } from '../../../../shared/pipes/markdown.pipe';
 import { SCORE_THRESHOLDS } from '../../../../shared/utils/score.utils';
 import { JudgeFeedbackComponent } from '../judge-feedback/judge-feedback.component';
 
@@ -20,13 +22,19 @@ import { JudgeFeedbackComponent } from '../judge-feedback/judge-feedback.compone
 	templateUrl: './round-card.component.html',
 	styleUrls: ['./round-card.component.scss'],
 	changeDetection: ChangeDetectionStrategy.OnPush,
-	imports: [CommonModule, PrimeNgModule, JudgeFeedbackComponent],
+	imports: [
+		CommonModule,
+		PrimeNgModule,
+		MarkdownPipe,
+		JudgeFeedbackComponent,
+	],
 })
 export class RoundCardComponent implements OnInit {
 	iteration = input.required<IterationSnapshot>();
 	images = input<GeneratedImage[]>([]);
 	isLatest = input(false);
 	defaultExpanded = input(false);
+	imageClick = output<string>();
 
 	showPrompt = signal(false);
 	expanded = signal(true);

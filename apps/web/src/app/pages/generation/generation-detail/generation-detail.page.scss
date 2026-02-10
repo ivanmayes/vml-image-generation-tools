@@ -2,6 +2,23 @@
 
 .generation-detail-page {
 	animation: fade-slide-in 0.3s ease both;
+
+	&.gallery-active {
+		height: 100vh;
+		display: flex;
+		flex-direction: column;
+		overflow: hidden;
+
+		.detail-header {
+			flex-shrink: 0;
+		}
+
+		app-gallery-mode {
+			flex: 1;
+			min-height: 0;
+			display: flex;
+		}
+	}
 }
 
 // Loading skeleton
@@ -136,6 +153,8 @@
 	@include surface-card-elevated;
 
 	padding: 24px;
+	position: relative;
+	z-index: 1;
 	display: flex;
 	align-items: center;
 	gap: 24px;
@@ -220,6 +239,8 @@
 	@include surface-card-elevated;
 
 	padding: 24px;
+	position: relative;
+	z-index: 2;
 	animation: fade-slide-in 0.35s ease both;
 
 	&__label {
@@ -235,10 +256,17 @@
 		max-width: 600px;
 		margin: 0 auto;
 
-		:host ::ng-deep .p-image img {
-			width: 100%;
-			height: auto;
+		:host ::ng-deep .p-image {
 			display: block;
+			border-radius: 8px;
+			overflow: hidden;
+
+			img {
+				width: 100%;
+				height: auto;
+				display: block;
+				border-radius: 8px;
+			}
 		}
 	}
 }
@@ -294,6 +322,7 @@
 	display: flex;
 	align-items: center;
 	gap: 12px;
+	text-align: left;
 	animation: fade-slide-in 0.3s ease both;
 }
 

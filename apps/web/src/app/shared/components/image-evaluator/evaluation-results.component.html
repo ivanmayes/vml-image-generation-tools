@@ -97,7 +97,10 @@
 	@if (result().feedback) {
 		<div class="section">
 			<h4>Feedback</h4>
-			<div class="feedback-block">{{ result().feedback }}</div>
+			<div
+				class="feedback-block markdown-content"
+				[innerHTML]="result().feedback | markdown"
+			></div>
 		</div>
 	}
 </div>

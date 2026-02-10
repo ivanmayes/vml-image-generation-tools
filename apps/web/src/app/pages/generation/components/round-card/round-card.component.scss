@@ -121,6 +121,7 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
+		cursor: pointer;
 		transition:
 			transform 0.2s,
 			border-color 0.2s;
@@ -132,20 +133,12 @@
 		&--selected {
 			border-color: var(--p-primary-color);
 		}
+	}
 
-		:host ::ng-deep .p-image {
-			width: 100%;
-			height: 100%;
-			display: flex;
-			align-items: center;
-			justify-content: center;
-
-			img {
-				width: 100%;
-				height: 100%;
-				object-fit: contain;
-			}
-		}
+	&__thumb-img {
+		width: 100%;
+		height: 100%;
+		object-fit: contain;
 	}
 
 	&__selected-badge {

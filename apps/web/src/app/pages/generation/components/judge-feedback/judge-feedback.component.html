@@ -1,9 +1,10 @@
 <div class="judge-feedback">
 	<!-- Feedback text -->
 	@if (evaluation().feedback) {
-		<div class="judge-feedback__text">
-			<p class="m-0">{{ evaluation().feedback }}</p>
-		</div>
+		<div
+			class="judge-feedback__text markdown-content"
+			[innerHTML]="evaluation().feedback | markdown"
+		></div>
 	}
 
 	<!-- What Worked -->

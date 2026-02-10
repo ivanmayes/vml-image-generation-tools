@@ -1,0 +1,180 @@
+@if (sortedImages().length > 0) {
+	<div class="gallery-layout">
+		<!-- Sidebar -->
+		<aside class="gallery-sidebar">
+			@if (currentIteration(); as iter) {
+				<div class="gallery-sidebar__header">
+					<h3 class="m-0">Iteration {{ iter.iterationNumber }}</h3>
+					@if (iter.mode === "edit") {
+						<p-tag value="Edit" severity="info" />
+					} @else if (iter.mode === "regeneration") {
+						<p-tag value="Regen" severity="secondary" />
+					}
+				</div>
+
+				<!-- Score -->
+				<div class="gallery-sidebar__score">
+					<span
+						class="gallery-sidebar__score-value"
+						[class]="
+							'score--' + getScoreSeverity(iter.aggregateScore)
+						"
+					>
+						{{ iter.aggregateScore }}%
+					</span>
+					<span class="gallery-sidebar__score-label">Score</span>
+				</div>
+
+				<!-- Selected badge -->
+				@if (currentContext()?.isSelected) {
+					<div class="gallery-sidebar__selected-badge">
+						<i class="pi pi-check-circle"></i>
+						<span>Selected for this iteration</span>
+					</div>
+				}
+
+				<!-- Top Issue -->
+				@if (iter.evaluations?.[0]?.topIssue; as topIssue) {
+					<div class="gallery-sidebar__top-issue">
+						<div class="flex align-items-center gap-2 mb-1">
+							<i
+								class="pi pi-exclamation-triangle"
+								style="color: var(--p-orange-500)"
+							></i>
+							<span class="text-sm font-semibold">Top Issue</span>
+							<p-tag
+								[value]="topIssue.severity"
+								[severity]="
+									topIssue.severity === 'critical'
+										? 'danger'
+										: topIssue.severity === 'major'
+											? 'warn'
+											: 'info'
+								"
+								class="text-xs"
+							/>
+						</div>
+						<p class="text-sm m-0 mb-1">
+							{{ topIssue.problem }}
+						</p>
+						<p class="text-sm text-color-secondary m-0">
+							<strong>Fix:</strong> {{ topIssue.fix }}
+						</p>
+					</div>
+				}
+
+				<!-- Prompt + Evaluations accordion -->
+				<p-accordion [multiple]="true">
+					<p-accordion-panel value="prompt">
+						<p-accordion-header>Prompt</p-accordion-header>
+						<p-accordion-content>
+							<p class="m-0 text-sm font-mono line-height-3">
+								{{ iter.optimizedPrompt }}
+							</p>
+						</p-accordion-content>
+					</p-accordion-panel>
+
+					@if (iter.evaluations?.length) {
+						@for (
+							evaluation of iter.evaluations;
+							track evaluation.agentId;
+							let i = $index
+						) {
+							<p-accordion-panel [value]="'eval-' + i">
+								<p-accordion-header>
+									<div class="gallery-sidebar__eval-header">
+										<span>{{ evaluation.agentName }}</span>
+										<span class="font-mono"
+											>{{
+												evaluation.overallScore
+											}}%</span
+										>
+									</div>
+								</p-accordion-header>
+								<p-accordion-content>
+									<app-judge-feedback
+										[evaluation]="evaluation"
+									/>
+								</p-accordion-content>
+							</p-accordion-panel>
+						}
+					}
+				</p-accordion>
+			} @else {
+				<div class="gallery-sidebar__empty">
+					<span class="text-color-secondary text-sm"
+						>No iteration data available</span
+					>
+				</div>
+			}
+		</aside>
+
+		<!-- Main gallery area -->
+		<main class="gallery-main">
+			<p-galleria
+				[value]="imageContexts()"
+				[activeIndex]="activeIndex()"
+				(activeIndexChange)="onActiveIndexChange($event)"
+				[showItemNavigators]="true"
+				[showItemNavigatorsOnHover]="false"
+				[numVisible]="7"
+				[circular]="false"
+				[responsiveOptions]="responsiveOptions"
+			>
+				<ng-template #item let-ctx>
+					<div class="gallery-item">
+						<img
+							[src]="ctx.image.s3Url"
+							[alt]="
+								'Iteration ' +
+								ctx.image.iterationNumber +
+								' image'
+							"
+							class="gallery-item__image"
+						/>
+					</div>
+				</ng-template>
+				<ng-template #thumbnail let-ctx>
+					<div
+						class="gallery-thumb"
+						[class.gallery-thumb--group-start]="
+							ctx.isFirstInGroup && ctx.flatIndex > 0
+						"
+						[class.gallery-thumb--selected]="ctx.isSelected"
+					>
+						<img
+							[src]="ctx.image.s3Url"
+							alt="Thumbnail"
+							class="gallery-thumb__image"
+						/>
+						@if (ctx.isFirstInGroup) {
+							<span class="gallery-thumb__iteration-badge">
+								{{ ctx.image.iterationNumber }}
+							</span>
+						}
+						@if (ctx.isSelected) {
+							<span class="gallery-thumb__selected-badge">
+								<i class="pi pi-check"></i>
+							</span>
+						}
+					</div>
+				</ng-template>
+				<ng-template #footer>
+					<div class="gallery-footer">
+						<span class="gallery-footer__counter">{{
+							imageCounter()
+						}}</span>
+						@if (currentIteration(); as iter) {
+							<span class="gallery-footer__iteration">
+								Iteration {{ iter.iterationNumber }}
+								@if (iter.mode) {
+									&middot; {{ iter.mode | titlecase }}
+								}
+							</span>
+						}
+					</div>
+				</ng-template>
+			</p-galleria>
+		</main>
+	</div>
+}

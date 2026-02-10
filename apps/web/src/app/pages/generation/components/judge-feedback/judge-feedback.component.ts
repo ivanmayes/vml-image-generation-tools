@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
 import { AgentEvaluationSnapshot } from '../../../../shared/models/generation-request.model';
+import { MarkdownPipe } from '../../../../shared/pipes/markdown.pipe';
 import { PrimeNgModule } from '../../../../shared/primeng.module';
 
 @Component({
@@ -9,7 +10,7 @@ import { PrimeNgModule } from '../../../../shared/primeng.module';
 	templateUrl: './judge-feedback.component.html',
 	styleUrls: ['./judge-feedback.component.scss'],
 	changeDetection: ChangeDetectionStrategy.OnPush,
-	imports: [CommonModule, PrimeNgModule],
+	imports: [CommonModule, PrimeNgModule, MarkdownPipe],
 })
 export class JudgeFeedbackComponent {
 	evaluation = input.required<AgentEvaluationSnapshot>();

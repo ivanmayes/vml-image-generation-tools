@@ -33,6 +33,7 @@ import { PrimeNgModule } from '../../../shared/primeng.module';
 import { RoundCardComponent } from '../components/round-card/round-card.component';
 import { CompletionBannerComponent } from '../components/completion-banner/completion-banner.component';
 import { ContinuationEditorComponent } from '../components/continuation-editor/continuation-editor.component';
+import { GalleryModeComponent } from '../components/gallery-mode/gallery-mode.component';
 
 @Component({
 	selector: 'app-generation-detail',
@@ -46,6 +47,7 @@ import { ContinuationEditorComponent } from '../components/continuation-editor/c
 		RoundCardComponent,
 		CompletionBannerComponent,
 		ContinuationEditorComponent,
+		GalleryModeComponent,
 	],
 })
 export class GenerationDetailPage
@@ -59,6 +61,8 @@ export class GenerationDetailPage
 	continuing = signal(false);
 	events = signal<GenerationEvent[]>([]);
 	sseConnected = signal(false);
+	galleryVisible = signal(false);
+	galleryInitialImageId = signal<string | undefined>(undefined);
 
 	private shouldAutoScroll = false;
 
@@ -162,7 +166,7 @@ export class GenerationDetailPage
 					this.loading.set(false);
 					this.loadImages();
 
-					if (this.isActive()) {
+					if (!this.isTerminal()) {
 						this.connectToStream();
 					}
 				},
@@ -189,6 +193,11 @@ export class GenerationDetailPage
 					// Images are supplemental, don't block the page
 				},
 			});
+	}
+
+	openGallery(imageId?: string): void {
+		this.galleryInitialImageId.set(imageId);
+		this.galleryVisible.set(true);
 	}
 
 	onBack(): void {

@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
+import { MarkdownPipe } from '../../pipes/markdown.pipe';
 import { PrimeNgModule } from '../../primeng.module';
 import { getScoreSeverity } from '../../utils/score.utils';
 import type { EvaluationResult } from '../../models/agent.model';
@@ -10,7 +11,7 @@ import type { EvaluationResult } from '../../models/agent.model';
 	templateUrl: './evaluation-results.component.html',
 	styleUrls: ['./evaluation-results.component.scss'],
 	changeDetection: ChangeDetectionStrategy.OnPush,
-	imports: [CommonModule, PrimeNgModule],
+	imports: [CommonModule, PrimeNgModule, MarkdownPipe],
 })
 export class EvaluationResultsComponent {
 	result = input.required<EvaluationResult>();

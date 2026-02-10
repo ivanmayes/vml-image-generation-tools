@@ -1,4 +1,4 @@
-<div class="generation-detail-page">
+<div class="generation-detail-page" [class.gallery-active]="galleryVisible()">
 	<!-- Loading skeleton -->
 	@if (loading()) {
 	<div class="detail-skeleton">
@@ -31,6 +31,13 @@
 				@if (sseConnected()) {
 				<span class="detail-header__live-badge">Live</span>
 				}
+				<p-button
+					[icon]="galleryVisible() ? 'pi pi-list' : 'pi pi-images'"
+					[label]="galleryVisible() ? 'Timeline' : 'Gallery'"
+					[text]="true"
+					(onClick)="galleryVisible() ? galleryVisible.set(false) : openGallery()"
+					[disabled]="!galleryVisible() && images().length === 0"
+				/>
 			</div>
 		</div>
 		@if (!isTerminal()) {
@@ -57,6 +64,7 @@
 		}
 	</div>
 
+	@if (!galleryVisible()) {
 	<div class="detail-content">
 		<!-- Brief -->
 		<div class="brief-card">
@@ -140,6 +148,7 @@
 					[images]="images()"
 					[isLatest]="last"
 					[defaultExpanded]="last"
+					(imageClick)="openGallery($event)"
 				/>
 			</div>
 			} @if (isActive()) {
@@ -150,8 +159,15 @@
 						strokeWidth="4"
 					/>
 					<span class="text-color-secondary text-sm">
-						Generating next iteration...
+						Next iteration...
 					</span>
+					@switch (req.generationMode) { @case ('edit') {
+					<p-tag value="Edit" severity="info" />
+					} @case ('mixed') {
+					<p-tag value="Mixed" severity="warn" />
+					} @default {
+					<p-tag value="Regen" severity="secondary" />
+					} }
 				</div>
 			</div>
 			}
@@ -202,5 +218,13 @@
 		</div>
 		}
 	</div>
-	}
+	} @else {
+	<!-- Gallery Mode (replaces timeline content) -->
+	<app-gallery-mode
+		[images]="images()"
+		[iterations]="iterations()"
+		[(visible)]="galleryVisible"
+		[initialImageId]="galleryInitialImageId()"
+	/>
+	} }
 </div>
