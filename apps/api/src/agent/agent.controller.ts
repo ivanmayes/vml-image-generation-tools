@@ -17,6 +17,16 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { FileInterceptor } from '@nestjs/platform-express';
+import {
+	ApiTags,
+	ApiOperation,
+	ApiResponse,
+	ApiBearerAuth,
+	ApiParam,
+	ApiQuery,
+	ApiConsumes,
+	ApiBody,
+} from '@nestjs/swagger';
 import * as AWS from 'aws-sdk';
 
 import { Roles } from '../user/auth/roles.decorator';
@@ -25,7 +35,10 @@ import { HasOrganizationAccessGuard } from '../organization/guards/has-organizat
 import { UserRole } from '../user/user-role.enum';
 import { User } from '../user/user.entity';
 import { ResponseEnvelope, ResponseStatus } from '../_core/models';
-import { UserContext } from '../_core/interfaces/user-context.interface';
+import {
+	UserContext,
+	isAdminRole,
+} from '../_core/interfaces/user-context.interface';
 
 import { Agent, AgentStatus } from './agent.entity';
 import { AgentService } from './agent.service';
@@ -36,6 +49,8 @@ import { AgentImportService } from './import/agent-import.service';
 
 const basePath = 'organization/:orgId/agents';
 
+@ApiTags('Agents')
+@ApiBearerAuth()
 @Controller(basePath)
 export class AgentController {
 	private readonly logger = new Logger(AgentController.name);
@@ -55,6 +70,50 @@ export class AgentController {
 	}
 
 	@Get()
+	@ApiOperation({ summary: 'Get all agents in an organization' })
+	@ApiParam({
+		name: 'orgId',
+		description: 'Organization ID',
+		type: 'string',
+	})
+	@ApiQuery({
+		name: 'query',
+		required: false,
+		description: 'Search query to filter agents by name',
+	})
+	@ApiQuery({
+		name: 'sortBy',
+		required: false,
+		description: 'Field to sort by',
+		enum: [
+			'createdAt',
+			'updatedAt',
+			'name',
+			'optimizationWeight',
+			'scoringWeight',
+			'status',
+			'agentType',
+		],
+	})
+	@ApiQuery({ name: 'order', required: false, enum: ['ASC', 'DESC'] })
+	@ApiQuery({
+		name: 'status',
+		required: false,
+		enum: AgentStatus,
+		description: 'Filter by agent status',
+	})
+	@ApiQuery({
+		name: 'canJudge',
+		required: false,
+		type: 'boolean',
+		description: 'Filter by judge capability',
+	})
+	@ApiResponse({
+		status: 200,
+		description: 'List of agents retrieved successfully',
+	})
+	@ApiResponse({ status: 401, description: 'Unauthorized' })
+	@ApiResponse({ status: 403, description: 'Forbidden' })
 	@Roles(UserRole.SuperAdmin, UserRole.Admin, UserRole.Manager, UserRole.User)
 	@UseGuards(AuthGuard(), RolesGuard, HasOrganizationAccessGuard)
 	public async getAgents(
@@ -98,6 +157,17 @@ export class AgentController {
 	}
 
 	@Get(':id')
+	@ApiOperation({ summary: 'Get a specific agent by ID' })
+	@ApiParam({
+		name: 'orgId',
+		description: 'Organization ID',
+		type: 'string',
+	})
+	@ApiParam({ name: 'id', description: 'Agent ID', type: 'string' })
+	@ApiResponse({ status: 200, description: 'Agent retrieved successfully' })
+	@ApiResponse({ status: 401, description: 'Unauthorized' })
+	@ApiResponse({ status: 403, description: 'Forbidden' })
+	@ApiResponse({ status: 404, description: 'Agent not found' })
 	@Roles(UserRole.SuperAdmin, UserRole.Admin, UserRole.Manager, UserRole.User)
 	@UseGuards(AuthGuard(), RolesGuard, HasOrganizationAccessGuard)
 	public async getAgent(
@@ -134,6 +204,18 @@ export class AgentController {
 	}
 
 	@Post()
+	@ApiOperation({ summary: 'Create a new agent' })
+	@ApiParam({
+		name: 'orgId',
+		description: 'Organization ID',
+		type: 'string',
+	})
+	@ApiBody({ type: AgentCreateDto })
+	@ApiResponse({ status: 201, description: 'Agent created successfully' })
+	@ApiResponse({ status: 400, description: 'Invalid input' })
+	@ApiResponse({ status: 401, description: 'Unauthorized' })
+	@ApiResponse({ status: 403, description: 'Forbidden' })
+	@ApiResponse({ status: 500, description: 'Error creating agent' })
 	@Roles(UserRole.SuperAdmin, UserRole.Admin, UserRole.Manager, UserRole.User)
 	@UseGuards(AuthGuard(), RolesGuard, HasOrganizationAccessGuard)
 	public async createAgent(
@@ -158,6 +240,32 @@ export class AgentController {
 				createDto.teamAgentIds,
 				orgId,
 			);
+
+			// Non-admins can only reference agents they own
+			if (req.user?.role && !isAdminRole(req.user.role)) {
+				const userContext: UserContext | undefined =
+					req.user?.id && req.user?.role
+						? { userId: req.user.id, role: req.user.role }
+						: undefined;
+				const accessChecks = await Promise.all(
+					createDto.teamAgentIds.map((tid) =>
+						this.agentService.getWithDocuments(
+							tid,
+							orgId,
+							userContext,
+						),
+					),
+				);
+				if (accessChecks.some((a) => !a)) {
+					throw new HttpException(
+						new ResponseEnvelope(
+							ResponseStatus.Failure,
+							'You do not have access to one or more referenced team agents.',
+						),
+						HttpStatus.FORBIDDEN,
+					);
+				}
+			}
 		}
 
 		const ragConfig = {
@@ -190,6 +298,7 @@ export class AgentController {
 				temperature: createDto.temperature,
 				maxTokens: createDto.maxTokens,
 				avatarUrl: createDto.avatarUrl,
+				judgePrompt: createDto.judgePrompt,
 			})
 			.catch(() => null);
 
@@ -211,7 +320,21 @@ export class AgentController {
 	}
 
 	@Put(':id')
-	@Roles(UserRole.SuperAdmin, UserRole.Admin)
+	@ApiOperation({ summary: 'Update an existing agent' })
+	@ApiParam({
+		name: 'orgId',
+		description: 'Organization ID',
+		type: 'string',
+	})
+	@ApiParam({ name: 'id', description: 'Agent ID', type: 'string' })
+	@ApiBody({ type: AgentUpdateDto })
+	@ApiResponse({ status: 200, description: 'Agent updated successfully' })
+	@ApiResponse({ status: 400, description: 'Invalid input' })
+	@ApiResponse({ status: 401, description: 'Unauthorized' })
+	@ApiResponse({ status: 403, description: 'Forbidden' })
+	@ApiResponse({ status: 404, description: 'Agent not found' })
+	@ApiResponse({ status: 500, description: 'Error updating agent' })
+	@Roles(UserRole.SuperAdmin, UserRole.Admin, UserRole.Manager, UserRole.User)
 	@UseGuards(AuthGuard(), RolesGuard, HasOrganizationAccessGuard)
 	public async updateAgent(
 		@Req() req: Request & { user: User },
@@ -229,10 +352,17 @@ export class AgentController {
 			);
 		}
 
-		// Check for agent including soft-delete filter
+		// Build userContext for ownership filtering (non-admins can only update their own agents)
+		const userContext: UserContext | undefined =
+			req.user?.id && req.user?.role
+				? { userId: req.user.id, role: req.user.role }
+				: undefined;
+
+		// Check for agent including soft-delete filter + ownership
 		const existingAgent = await this.agentService.getWithDocuments(
 			id,
 			orgId,
+			userContext,
 		);
 
 		if (!existingAgent) {
@@ -252,13 +382,41 @@ export class AgentController {
 				updateDto.teamAgentIds,
 				orgId,
 			);
+
+			// Non-admins can only reference agents they own
+			if (userContext && !isAdminRole(userContext.role)) {
+				const accessChecks = await Promise.all(
+					updateDto.teamAgentIds.map((tid) =>
+						this.agentService.getWithDocuments(
+							tid,
+							orgId,
+							userContext,
+						),
+					),
+				);
+				if (accessChecks.some((a) => !a)) {
+					throw new HttpException(
+						new ResponseEnvelope(
+							ResponseStatus.Failure,
+							'You do not have access to one or more referenced team agents.',
+						),
+						HttpStatus.FORBIDDEN,
+					);
+				}
+			}
 		}
 
 		// Build the update payload with proper ragConfig handling
 		const { ragConfig: _, ...otherFields } = updateDto;
+		const { judgePrompt: rawJudgePrompt, ...restFields } = otherFields;
 		const updatePayload: Partial<Agent> = {
-			...otherFields,
-		};
+			...restFields,
+			// Only include judgePrompt when explicitly provided (null clears, string sets, undefined skips)
+			// Keep null as-is so Object.assign + save() writes NULL to the column
+			...(rawJudgePrompt !== undefined && {
+				judgePrompt: rawJudgePrompt,
+			}),
+		} as Partial<Agent>;
 
 		// If ragConfig is being updated, ensure all fields are present
 		// Use defaults if existing ragConfig is null/undefined (defensive coding)
@@ -277,7 +435,7 @@ export class AgentController {
 		}
 
 		const updated = await this.agentService
-			.update(id, updatePayload)
+			.update(id, updatePayload, orgId)
 			.catch(() => null);
 
 		if (!updated) {
@@ -298,7 +456,18 @@ export class AgentController {
 	}
 
 	@Delete(':id')
-	@Roles(UserRole.SuperAdmin, UserRole.Admin)
+	@ApiOperation({ summary: 'Soft delete an agent' })
+	@ApiParam({
+		name: 'orgId',
+		description: 'Organization ID',
+		type: 'string',
+	})
+	@ApiParam({ name: 'id', description: 'Agent ID', type: 'string' })
+	@ApiResponse({ status: 200, description: 'Agent deleted successfully' })
+	@ApiResponse({ status: 401, description: 'Unauthorized' })
+	@ApiResponse({ status: 403, description: 'Forbidden' })
+	@ApiResponse({ status: 404, description: 'Agent not found' })
+	@Roles(UserRole.SuperAdmin, UserRole.Admin, UserRole.Manager, UserRole.User)
 	@UseGuards(AuthGuard(), RolesGuard, HasOrganizationAccessGuard)
 	public async deleteAgent(
 		@Req() req: Request & { user: User },
@@ -315,10 +484,17 @@ export class AgentController {
 			);
 		}
 
-		// Check for agent including soft-delete filter (getWithDocuments filters by deletedAt IS NULL)
+		// Build userContext for ownership filtering (non-admins can only delete their own agents)
+		const userContext: UserContext | undefined =
+			req.user?.id && req.user?.role
+				? { userId: req.user.id, role: req.user.role }
+				: undefined;
+
+		// Check for agent including soft-delete filter + ownership
 		const existingAgent = await this.agentService.getWithDocuments(
 			id,
 			orgId,
+			userContext,
 		);
 
 		if (!existingAgent) {
@@ -340,15 +516,38 @@ export class AgentController {
 	}
 
 	@Get(':id/documents')
-	@Roles(UserRole.SuperAdmin, UserRole.Admin)
+	@ApiOperation({ summary: 'Get all documents for an agent' })
+	@ApiParam({
+		name: 'orgId',
+		description: 'Organization ID',
+		type: 'string',
+	})
+	@ApiParam({ name: 'id', description: 'Agent ID', type: 'string' })
+	@ApiResponse({
+		status: 200,
+		description: 'Agent documents retrieved successfully',
+	})
+	@ApiResponse({ status: 401, description: 'Unauthorized' })
+	@ApiResponse({ status: 403, description: 'Forbidden' })
+	@ApiResponse({ status: 404, description: 'Agent not found' })
+	@Roles(UserRole.SuperAdmin, UserRole.Admin, UserRole.Manager, UserRole.User)
 	@UseGuards(AuthGuard(), RolesGuard, HasOrganizationAccessGuard)
 	public async getDocuments(
+		@Req() req: Request & { user: User },
 		@Param('orgId') orgId: string,
 		@Param('id') id: string,
 	) {
-		const agent = await this.agentService.findOne({
-			where: { id, organizationId: orgId },
-		});
+		// Build userContext for ownership filtering (non-admins can only access their own agents' documents)
+		const userContext: UserContext | undefined =
+			req.user?.id && req.user?.role
+				? { userId: req.user.id, role: req.user.role }
+				: undefined;
+
+		const agent = await this.agentService.getWithDocuments(
+			id,
+			orgId,
+			userContext,
+		);
 
 		if (!agent) {
 			throw new HttpException(
@@ -370,7 +569,36 @@ export class AgentController {
 	}
 
 	@Post(':id/documents')
-	@Roles(UserRole.SuperAdmin, UserRole.Admin)
+	@ApiOperation({ summary: 'Upload a document to an agent for RAG' })
+	@ApiParam({
+		name: 'orgId',
+		description: 'Organization ID',
+		type: 'string',
+	})
+	@ApiParam({ name: 'id', description: 'Agent ID', type: 'string' })
+	@ApiConsumes('multipart/form-data')
+	@ApiBody({
+		description: 'File to upload',
+		schema: {
+			type: 'object',
+			properties: {
+				file: {
+					type: 'string',
+					format: 'binary',
+				},
+			},
+		},
+	})
+	@ApiResponse({
+		status: 201,
+		description: 'Document uploaded successfully',
+	})
+	@ApiResponse({ status: 400, description: 'No file provided' })
+	@ApiResponse({ status: 401, description: 'Unauthorized' })
+	@ApiResponse({ status: 403, description: 'Forbidden' })
+	@ApiResponse({ status: 404, description: 'Agent not found' })
+	@ApiResponse({ status: 500, description: 'Error uploading file' })
+	@Roles(UserRole.SuperAdmin, UserRole.Admin, UserRole.Manager, UserRole.User)
 	@UseGuards(AuthGuard(), RolesGuard, HasOrganizationAccessGuard)
 	@UseInterceptors(FileInterceptor('file'))
 	public async uploadDocument(
@@ -389,9 +617,17 @@ export class AgentController {
 			);
 		}
 
-		const agent = await this.agentService.findOne({
-			where: { id, organizationId: orgId },
-		});
+		// Build userContext for ownership filtering (non-admins can only upload to their own agents)
+		const userContext: UserContext | undefined =
+			req.user?.id && req.user?.role
+				? { userId: req.user.id, role: req.user.role }
+				: undefined;
+
+		const agent = await this.agentService.getWithDocuments(
+			id,
+			orgId,
+			userContext,
+		);
 
 		if (!agent) {
 			throw new HttpException(
@@ -472,7 +708,26 @@ export class AgentController {
 	}
 
 	@Delete(':id/documents/:documentId')
-	@Roles(UserRole.SuperAdmin, UserRole.Admin)
+	@ApiOperation({ summary: 'Delete a document from an agent' })
+	@ApiParam({
+		name: 'orgId',
+		description: 'Organization ID',
+		type: 'string',
+	})
+	@ApiParam({ name: 'id', description: 'Agent ID', type: 'string' })
+	@ApiParam({
+		name: 'documentId',
+		description: 'Document ID',
+		type: 'string',
+	})
+	@ApiResponse({
+		status: 200,
+		description: 'Document deleted successfully',
+	})
+	@ApiResponse({ status: 401, description: 'Unauthorized' })
+	@ApiResponse({ status: 403, description: 'Forbidden' })
+	@ApiResponse({ status: 404, description: 'Agent or document not found' })
+	@Roles(UserRole.SuperAdmin, UserRole.Admin, UserRole.Manager, UserRole.User)
 	@UseGuards(AuthGuard(), RolesGuard, HasOrganizationAccessGuard)
 	public async deleteDocument(
 		@Req() req: Request & { user: User },
@@ -490,9 +745,17 @@ export class AgentController {
 			);
 		}
 
-		const agent = await this.agentService.findOne({
-			where: { id, organizationId: orgId },
-		});
+		// Build userContext for ownership filtering (non-admins can only delete from their own agents)
+		const userContext: UserContext | undefined =
+			req.user?.id && req.user?.role
+				? { userId: req.user.id, role: req.user.role }
+				: undefined;
+
+		const agent = await this.agentService.getWithDocuments(
+			id,
+			orgId,
+			userContext,
+		);
 
 		if (!agent) {
 			throw new HttpException(
@@ -542,6 +805,22 @@ export class AgentController {
 	// --- New endpoints ---
 
 	@Get(':id/with-team')
+	@ApiOperation({
+		summary: 'Get an agent with its team members expanded',
+	})
+	@ApiParam({
+		name: 'orgId',
+		description: 'Organization ID',
+		type: 'string',
+	})
+	@ApiParam({ name: 'id', description: 'Agent ID', type: 'string' })
+	@ApiResponse({
+		status: 200,
+		description: 'Agent with team members retrieved successfully',
+	})
+	@ApiResponse({ status: 401, description: 'Unauthorized' })
+	@ApiResponse({ status: 403, description: 'Forbidden' })
+	@ApiResponse({ status: 404, description: 'Agent not found' })
 	@Roles(UserRole.SuperAdmin, UserRole.Admin, UserRole.Manager, UserRole.User)
 	@UseGuards(AuthGuard(), RolesGuard, HasOrganizationAccessGuard)
 	public async getAgentWithTeam(
@@ -567,6 +846,20 @@ export class AgentController {
 	}
 
 	@Post(':id/restore')
+	@ApiOperation({ summary: 'Restore a soft-deleted agent' })
+	@ApiParam({
+		name: 'orgId',
+		description: 'Organization ID',
+		type: 'string',
+	})
+	@ApiParam({ name: 'id', description: 'Agent ID', type: 'string' })
+	@ApiResponse({
+		status: 200,
+		description: 'Agent restored successfully',
+	})
+	@ApiResponse({ status: 401, description: 'Unauthorized' })
+	@ApiResponse({ status: 403, description: 'Forbidden' })
+	@ApiResponse({ status: 404, description: 'Agent not found' })
 	@Roles(UserRole.SuperAdmin, UserRole.Admin)
 	@UseGuards(AuthGuard(), RolesGuard, HasOrganizationAccessGuard)
 	public async restoreAgent(
@@ -594,6 +887,22 @@ export class AgentController {
 	}
 
 	@Get(':id/export')
+	@ApiOperation({
+		summary: 'Export an agent to .agent file format (ZIP)',
+	})
+	@ApiParam({
+		name: 'orgId',
+		description: 'Organization ID',
+		type: 'string',
+	})
+	@ApiParam({ name: 'id', description: 'Agent ID', type: 'string' })
+	@ApiResponse({
+		status: 200,
+		description: 'Agent exported successfully (returns base64 ZIP)',
+	})
+	@ApiResponse({ status: 401, description: 'Unauthorized' })
+	@ApiResponse({ status: 403, description: 'Forbidden' })
+	@ApiResponse({ status: 404, description: 'Agent not found' })
 	@Roles(UserRole.SuperAdmin, UserRole.Admin)
 	@UseGuards(AuthGuard(), RolesGuard, HasOrganizationAccessGuard)
 	public async exportAgent(
@@ -626,6 +935,44 @@ export class AgentController {
 	}
 
 	@Post('import')
+	@ApiOperation({ summary: 'Import an agent from .agent file' })
+	@ApiParam({
+		name: 'orgId',
+		description: 'Organization ID',
+		type: 'string',
+	})
+	@ApiConsumes('multipart/form-data')
+	@ApiBody({
+		description: '.agent file to import',
+		schema: {
+			type: 'object',
+			properties: {
+				file: {
+					type: 'string',
+					format: 'binary',
+				},
+				nameOverride: {
+					type: 'string',
+					description: 'Optional name override for imported agent',
+				},
+				skipDocuments: {
+					type: 'boolean',
+					description: 'Skip importing documents',
+				},
+			},
+			required: ['file'],
+		},
+	})
+	@ApiResponse({
+		status: 201,
+		description: 'Agent imported successfully',
+	})
+	@ApiResponse({
+		status: 400,
+		description: 'No file provided or invalid file',
+	})
+	@ApiResponse({ status: 401, description: 'Unauthorized' })
+	@ApiResponse({ status: 403, description: 'Forbidden' })
 	@Roles(UserRole.SuperAdmin, UserRole.Admin)
 	@UseGuards(AuthGuard(), RolesGuard, HasOrganizationAccessGuard)
 	@UseInterceptors(FileInterceptor('file'))
@@ -673,6 +1020,33 @@ export class AgentController {
 	}
 
 	@Post('validate-import')
+	@ApiOperation({ summary: 'Validate an .agent file without importing' })
+	@ApiParam({
+		name: 'orgId',
+		description: 'Organization ID',
+		type: 'string',
+	})
+	@ApiConsumes('multipart/form-data')
+	@ApiBody({
+		description: '.agent file to validate',
+		schema: {
+			type: 'object',
+			properties: {
+				file: {
+					type: 'string',
+					format: 'binary',
+				},
+			},
+			required: ['file'],
+		},
+	})
+	@ApiResponse({
+		status: 200,
+		description: 'Validation result returned',
+	})
+	@ApiResponse({ status: 400, description: 'No file provided' })
+	@ApiResponse({ status: 401, description: 'Unauthorized' })
+	@ApiResponse({ status: 403, description: 'Forbidden' })
 	@Roles(UserRole.SuperAdmin, UserRole.Admin)
 	@UseGuards(AuthGuard(), RolesGuard, HasOrganizationAccessGuard)
 	@UseInterceptors(FileInterceptor('file'))

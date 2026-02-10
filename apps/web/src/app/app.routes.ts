@@ -25,6 +25,20 @@ export const routes: Routes = [
 			),
 	},
 	{
+		path: 'image-editing',
+		loadChildren: () =>
+			import('./pages/image-editing/image-editing.routes').then(
+				(m) => m.IMAGE_EDITING_ROUTES,
+			),
+	},
+	{
+		path: 'my-agents',
+		loadChildren: () =>
+			import('./pages/my-agents/my-agents.module').then(
+				(m) => m.MyAgentsPageModule,
+			),
+	},
+	{
 		path: 'projects',
 		loadChildren: () =>
 			import('./pages/projects/projects.module').then(

@@ -1,0 +1,151 @@
+.my-agent-detail-page {
+	padding: 0;
+
+	.page-header {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+
+		h1 {
+			margin: 0;
+		}
+	}
+
+	.loading-container {
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		padding: 4rem 0;
+	}
+
+	.form-container {
+		max-width: 800px;
+		padding: 1.5rem 0;
+
+		.field {
+			margin-bottom: 1.5rem;
+
+			label {
+				display: block;
+				margin-bottom: 0.5rem;
+				font-weight: 600;
+				color: var(--p-text-color);
+			}
+
+			.helper-text {
+				display: block;
+				margin-top: 0.25rem;
+				color: var(--p-text-color-secondary);
+				font-size: 0.875rem;
+			}
+		}
+
+		.field-row {
+			display: flex;
+			gap: 2rem;
+
+			.field {
+				flex: 1;
+			}
+		}
+
+		.toggle-row {
+			display: flex;
+			gap: 3rem;
+			margin-bottom: 1.5rem;
+
+			.toggle-field {
+				display: flex;
+				align-items: center;
+				gap: 0.75rem;
+				flex-wrap: wrap;
+
+				label {
+					font-weight: 600;
+					color: var(--p-text-color);
+					margin: 0;
+				}
+
+				.helper-text {
+					flex-basis: 100%;
+					color: var(--p-text-color-secondary);
+					font-size: 0.875rem;
+					margin-top: -0.25rem;
+				}
+			}
+		}
+
+		.slider-input-row {
+			display: flex;
+			align-items: center;
+			gap: 1.5rem;
+
+			.flex-1 {
+				flex: 1;
+			}
+		}
+
+		.avatar-preview-row {
+			display: flex;
+			align-items: center;
+			gap: 1rem;
+
+			.flex-1 {
+				flex: 1;
+			}
+		}
+
+		.form-actions {
+			display: flex;
+			justify-content: flex-end;
+			gap: 0.75rem;
+			margin-top: 2rem;
+			padding-top: 1.5rem;
+			border-top: 1px solid var(--p-surface-border);
+		}
+	}
+
+	.placeholder-content {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		padding: 4rem 2rem;
+		text-align: center;
+
+		p {
+			margin: 1rem 0 0;
+			color: var(--p-text-color-secondary);
+			font-size: 1.1rem;
+		}
+	}
+
+	.empty-message {
+		text-align: center;
+		color: var(--p-text-color-secondary);
+	}
+
+	.muted-text {
+		color: var(--p-text-muted-color);
+	}
+
+	.actions-column {
+		width: 5rem;
+	}
+}
+
+// PrimeNG component style overrides
+// Note: ::ng-deep is necessary for styling PrimeNG components that don't expose Pass Through API options
+:host ::ng-deep {
+	// Limit textarea height with scroll for long system prompts
+	.system-prompt-textarea {
+		max-height: 25rem;
+		overflow-y: auto !important;
+	}
+
+	// Ensure full width for select components
+	p-multiselect .p-multiselect,
+	p-select .p-select {
+		width: 100%;
+	}
+}

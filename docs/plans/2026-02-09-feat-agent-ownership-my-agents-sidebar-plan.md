@@ -58,57 +58,57 @@ Currently, agents are managed exclusively through the admin panel (`/organizatio
 
 ### Backend — Authorization
 
-- [ ] `PUT /agents/:id` (line 308) allows Manager and User roles when `createdBy` matches the requesting user
-- [ ] `DELETE /agents/:id` (line 412) allows Manager and User roles when `createdBy` matches the requesting user
-- [ ] `GET /agents/:id/documents` (line 468) allows Manager and User roles when agent's `createdBy` matches
-- [ ] `POST /agents/:id/documents` (line 527) allows Manager and User roles when agent's `createdBy` matches
-- [ ] `DELETE /agents/:id/documents/:documentId` (line 648) allows Manager and User roles when agent's `createdBy` matches
-- [ ] Admin and SuperAdmin roles continue to edit/delete any agent (no ownership check)
-- [ ] `userContext` is passed to `getWithDocuments()` in update (line 327) and delete (line 430) controller methods
-- [ ] Document endpoints replace `findOne` with `getWithDocuments()` + `userContext` for ownership enforcement
-- [ ] Non-admin users cannot reference agents they don't own in `teamAgentIds` — validate by fetching referenced IDs with `userContext` scoping and comparing count
-- [ ] Agents with `createdBy: null` are NOT returned for non-admin users (existing behavior, verify)
-- [ ] `POST /agents/:id/restore` (line 773) remains admin-only (explicit decision)
-- [ ] Export/import endpoints (lines 816, 886, 957) remain admin-only (explicit decision)
-- [ ] `GET /agents/:id/with-team` (line 734) already allows Manager/User with `userContext` — no changes needed (verified)
+- [x] `PUT /agents/:id` (line 308) allows Manager and User roles when `createdBy` matches the requesting user
+- [x] `DELETE /agents/:id` (line 412) allows Manager and User roles when `createdBy` matches the requesting user
+- [x] `GET /agents/:id/documents` (line 468) allows Manager and User roles when agent's `createdBy` matches
+- [x] `POST /agents/:id/documents` (line 527) allows Manager and User roles when agent's `createdBy` matches
+- [x] `DELETE /agents/:id/documents/:documentId` (line 648) allows Manager and User roles when agent's `createdBy` matches
+- [x] Admin and SuperAdmin roles continue to edit/delete any agent (no ownership check)
+- [x] `userContext` is passed to `getWithDocuments()` in update (line 327) and delete (line 430) controller methods
+- [x] Document endpoints replace `findOne` with `getWithDocuments()` + `userContext` for ownership enforcement
+- [x] Non-admin users cannot reference agents they don't own in `teamAgentIds` — validate by fetching referenced IDs with `userContext` scoping and comparing count
+- [x] Agents with `createdBy: null` are NOT returned for non-admin users (existing behavior, verified)
+- [x] `POST /agents/:id/restore` (line 773) remains admin-only (explicit decision, unchanged)
+- [x] Export/import endpoints (lines 816, 886, 957) remain admin-only (explicit decision, unchanged)
+- [x] `GET /agents/:id/with-team` (line 734) already allows Manager/User with `userContext` — no changes needed (verified)
 
 ### Backend — API Filtering
 
-- [ ] `GET /agents` returns only user's own agents when `userContext.role` is not admin (existing behavior, verify)
-- [ ] `POST /agents` sets `createdBy` to requesting user's ID (existing behavior at line 251, verify)
+- [x] `GET /agents` returns only user's own agents when `userContext.role` is not admin (existing behavior, verified)
+- [x] `POST /agents` sets `createdBy` to requesting user's ID (existing behavior at line 251, verified)
 
 ### Frontend — Sidebar & Navigation
 
-- [ ] "My Agents" nav item added statically to `SidebarService` initial array (visible to all authenticated users)
-- [ ] "My Agents" nav item uses an appropriate icon (e.g., `pi-objects-column` or `pi-microchip-ai`)
-- [ ] Clicking "My Agents" navigates to `/my-agents`
-- [ ] Route `/my-agents` is defined in `app.routes.ts` (no `AdminRoleGuard` — API handles auth)
+- [x] "My Agents" nav item added statically to `SidebarService` initial array (visible to all authenticated users)
+- [x] "My Agents" nav item uses an appropriate icon (`pi-objects-column`)
+- [x] Clicking "My Agents" navigates to `/my-agents`
+- [x] Route `/my-agents` is defined in `app.routes.ts` (no `AdminRoleGuard` — API handles auth)
 
 ### Frontend — My Agents Page (Duplicate of Judges Page)
 
-- [ ] New component at `apps/web/src/app/pages/my-agents/my-agents.page.ts` — independent copy of judges page
-- [ ] Page loads and displays only agents where `createdBy` matches the current user (backend handles filtering)
-- [ ] Table shows columns: Name, Status, Type, Can Judge, Model, Created, Actions
-- [ ] Search/filter by name works
-- [ ] Sort by name/createdAt/updatedAt/status works
-- [ ] Create agent button navigates to `/my-agents/new`
-- [ ] Edit navigates to `/my-agents/:id`
-- [ ] Delete shows confirmation dialog and deletes on confirm
-- [ ] Empty state shows "No agents yet. Create your first agent." message
+- [x] New component at `apps/web/src/app/pages/my-agents/my-agents.page.ts` — independent copy of judges page
+- [x] Page loads and displays only agents where `createdBy` matches the current user (backend handles filtering)
+- [x] Table shows columns: Name, Status, Type, Can Judge, Model, Created, Actions
+- [x] Search/filter by name works
+- [x] Sort by name/createdAt/updatedAt/status works
+- [x] Create agent button navigates to `/my-agents/new`
+- [x] Edit navigates to `/my-agents/:id`
+- [x] Delete shows confirmation dialog and deletes on confirm
+- [x] Empty state shows "No agents yet. Create your first agent." message
 
 ### Frontend — My Agents Detail Page (Duplicate of Judge Detail)
 
-- [ ] New component at `apps/web/src/app/pages/my-agents/my-agent-detail/my-agent-detail.page.ts`
-- [ ] Back/cancel navigates to `/my-agents`
-- [ ] Create and edit flows work identically to the admin judge-detail page
-- [ ] `loadAvailableAgents` for team picker returns only user's own agents (backend handles filtering)
-- [ ] Direct URL access to an agent the user does not own shows a 404/error state (backend returns null)
+- [x] New component at `apps/web/src/app/pages/my-agents/my-agent-detail/my-agent-detail.page.ts`
+- [x] Back/cancel navigates to `/my-agents`
+- [x] Create and edit flows work identically to the admin judge-detail page
+- [x] `loadAvailableAgents` for team picker returns only user's own agents (backend handles filtering)
+- [x] Direct URL access to an agent the user does not own shows a 404/error state (backend returns null)
 
 ### Admin Section
 
-- [ ] Admin judges page (`/organization/admin/judges`) continues to show ALL agents — no changes
-- [ ] Admin CRUD operations are unaffected
-- [ ] Admins can still manage agents with `createdBy: null`
+- [x] Admin judges page (`/organization/admin/judges`) continues to show ALL agents — no changes
+- [x] Admin CRUD operations are unaffected
+- [x] Admins can still manage agents with `createdBy: null`
 
 ## Success Metrics
 

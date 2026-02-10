@@ -1,0 +1,664 @@
+<div class="my-agent-detail-page">
+	<div class="page-header mb-4">
+		<button
+			pButton
+			icon="pi pi-arrow-left"
+			label="Back to My Agents"
+			aria-label="Back to My Agents"
+			class="p-button-text"
+			(click)="goBack()"
+		></button>
+
+		<h1>
+			@if (isCreateMode()) { Create Agent } @else { Edit Agent: {{
+			agent()?.name }} }
+		</h1>
+	</div>
+
+	@if (loading()) {
+	<div class="loading-container">
+		<p-progressSpinner></p-progressSpinner>
+	</div>
+	} @else {
+	<p-tabs value="0">
+		<p-tablist>
+			<p-tab value="0">General</p-tab>
+			<p-tab value="1">Prompts</p-tab>
+			<p-tab value="2">Model Configuration</p-tab>
+			<p-tab value="3">Team & Capabilities</p-tab>
+			<p-tab value="4">Judging</p-tab>
+			<p-tab value="5">Weights & RAG</p-tab>
+			<p-tab value="6">Documents</p-tab>
+			<p-tab value="7">Test / Evaluate</p-tab>
+		</p-tablist>
+
+		<form [formGroup]="form">
+			<p-tabpanels>
+				<!-- Tab 0: General -->
+				<p-tabpanel value="0">
+					<div class="form-container">
+						<div class="field">
+							<label for="name">Name *</label>
+							<input
+								id="name"
+								pInputText
+								formControlName="name"
+								placeholder="Enter agent name"
+								class="w-full"
+							/>
+							@if (form.get('name')?.invalid &&
+							form.get('name')?.touched) {
+							<small class="p-error">Name is required.</small>
+							}
+						</div>
+
+						<div class="field">
+							<label for="description">Description</label>
+							<textarea
+								id="description"
+								pTextarea
+								formControlName="description"
+								[autoResize]="true"
+								[rows]="3"
+								placeholder="Brief description of this agent's purpose"
+								class="w-full"
+							></textarea>
+						</div>
+
+						<div class="toggle-row">
+							<div class="toggle-field">
+								<p-toggleSwitch
+									formControlName="status"
+									inputId="status"
+								></p-toggleSwitch>
+								<label for="status">Active</label>
+								<small class="helper-text"
+									>Inactive agents are excluded from
+									evaluations</small
+								>
+							</div>
+
+							<div class="toggle-field">
+								<p-toggleSwitch
+									formControlName="canJudge"
+									inputId="canJudge"
+								></p-toggleSwitch>
+								<label for="canJudge">Can Judge</label>
+								<small class="helper-text"
+									>Enable to use as evaluation judge</small
+								>
+							</div>
+						</div>
+
+						<div class="field">
+							<label for="avatarUrl">Avatar URL</label>
+							<div class="avatar-preview-row">
+								<input
+									id="avatarUrl"
+									pInputText
+									formControlName="avatarUrl"
+									placeholder="https://example.com/avatar.png"
+									class="flex-1"
+								/>
+								@if (form.get('avatarUrl')?.value) {
+								<p-avatar
+									[image]="form.get('avatarUrl')!.value!"
+									size="large"
+									shape="circle"
+								></p-avatar>
+								}
+							</div>
+						</div>
+
+						<div class="form-actions">
+							<button
+								pButton
+								label="Cancel"
+								aria-label="Cancel"
+								class="p-button-outlined"
+								(click)="cancel()"
+								type="button"
+							></button>
+							<button
+								pButton
+								[label]="saving() ? 'Saving...' : 'Save'"
+								aria-label="Save"
+								icon="pi pi-check"
+								(click)="save()"
+								[disabled]="saving() || form.invalid"
+								[loading]="saving()"
+								type="button"
+							></button>
+						</div>
+					</div>
+				</p-tabpanel>
+
+				<!-- Tab 1: Prompts -->
+				<p-tabpanel value="1">
+					<div class="form-container">
+						<div class="field">
+							<label for="systemPrompt">System Prompt *</label>
+							<textarea
+								id="systemPrompt"
+								pTextarea
+								formControlName="systemPrompt"
+								[autoResize]="true"
+								[rows]="10"
+								placeholder="Enter the system prompt for this agent..."
+								class="w-full system-prompt-textarea"
+							></textarea>
+							@if (form.get('systemPrompt')?.invalid &&
+							form.get('systemPrompt')?.touched) {
+							<small class="p-error"
+								>System prompt is required.</small
+							>
+							}
+						</div>
+
+						<div class="field">
+							<label for="teamPrompt">Team Prompt</label>
+							<textarea
+								id="teamPrompt"
+								pTextarea
+								formControlName="teamPrompt"
+								[autoResize]="true"
+								[rows]="5"
+								placeholder="Additional context when agent works in a team..."
+								class="w-full"
+							></textarea>
+							<small class="helper-text"
+								>Prompt context when agent works in a
+								team</small
+							>
+						</div>
+
+						<div class="field">
+							<label for="aiSummary">AI Summary</label>
+							<textarea
+								id="aiSummary"
+								pTextarea
+								formControlName="aiSummary"
+								[autoResize]="true"
+								[rows]="3"
+								class="w-full"
+							></textarea>
+							<small class="helper-text"
+								>Auto-generated summary of this agent's
+								behavior</small
+							>
+						</div>
+
+						<div class="form-actions">
+							<button
+								pButton
+								label="Cancel"
+								aria-label="Cancel"
+								class="p-button-outlined"
+								(click)="cancel()"
+								type="button"
+							></button>
+							<button
+								pButton
+								[label]="saving() ? 'Saving...' : 'Save'"
+								aria-label="Save"
+								icon="pi pi-check"
+								(click)="save()"
+								[disabled]="saving() || form.invalid"
+								[loading]="saving()"
+								type="button"
+							></button>
+						</div>
+					</div>
+				</p-tabpanel>
+
+				<!-- Tab 2: Model Configuration -->
+				<p-tabpanel value="2">
+					<div class="form-container">
+						<div class="field">
+							<label for="agentType">Agent Type</label>
+							<p-select
+								formControlName="agentType"
+								[options]="agentTypes"
+								optionLabel="label"
+								optionValue="value"
+								placeholder="Select agent type"
+								[showClear]="true"
+								inputId="agentType"
+								class="w-full"
+							></p-select>
+						</div>
+
+						<div class="field">
+							<label for="modelTier">Model Tier</label>
+							<p-select
+								formControlName="modelTier"
+								[options]="modelTiers"
+								optionLabel="label"
+								optionValue="value"
+								placeholder="Select model tier"
+								[showClear]="true"
+								inputId="modelTier"
+								class="w-full"
+							></p-select>
+						</div>
+
+						<div class="field">
+							<label for="thinkingLevel">Thinking Level</label>
+							<p-select
+								formControlName="thinkingLevel"
+								[options]="thinkingLevels"
+								optionLabel="label"
+								optionValue="value"
+								placeholder="Select thinking level"
+								[showClear]="true"
+								inputId="thinkingLevel"
+								class="w-full"
+							></p-select>
+						</div>
+
+						<div class="field">
+							<label for="temperature">Temperature</label>
+							<div class="slider-input-row">
+								@if (form.get('temperature')?.value !== null) {
+								<p-slider
+									formControlName="temperature"
+									[min]="0"
+									[max]="2"
+									[step]="0.1"
+									class="flex-1"
+								></p-slider>
+								}
+								<p-inputNumber
+									formControlName="temperature"
+									[min]="0"
+									[max]="2"
+									[step]="0.1"
+									[minFractionDigits]="1"
+									[maxFractionDigits]="1"
+									[showButtons]="true"
+									inputId="temperature"
+									placeholder="Default"
+								></p-inputNumber>
+							</div>
+						</div>
+
+						<div class="field">
+							<label for="maxTokens">Max Tokens</label>
+							<p-inputNumber
+								formControlName="maxTokens"
+								[min]="1"
+								[max]="1000000"
+								[showButtons]="true"
+								inputId="maxTokens"
+								placeholder="Default"
+							></p-inputNumber>
+						</div>
+
+						<div class="form-actions">
+							<button
+								pButton
+								label="Cancel"
+								aria-label="Cancel"
+								class="p-button-outlined"
+								(click)="cancel()"
+								type="button"
+							></button>
+							<button
+								pButton
+								[label]="saving() ? 'Saving...' : 'Save'"
+								aria-label="Save"
+								icon="pi pi-check"
+								(click)="save()"
+								[disabled]="saving() || form.invalid"
+								[loading]="saving()"
+								type="button"
+							></button>
+						</div>
+					</div>
+				</p-tabpanel>
+
+				<!-- Tab 3: Team & Capabilities -->
+				<p-tabpanel value="3">
+					<div class="form-container">
+						<div class="field">
+							<label for="capabilities">Capabilities</label>
+							<p-autocomplete
+								formControlName="capabilities"
+								inputId="capabilities"
+								[multiple]="true"
+								[typeahead]="false"
+								[addOnBlur]="true"
+								[addOnTab]="true"
+								placeholder="Type and press Enter to add"
+								fluid
+							></p-autocomplete>
+							<small class="helper-text"
+								>Tags describing what this agent can do</small
+							>
+						</div>
+
+						<div class="field">
+							<label for="teamAgentIds">Team Members</label>
+							<p-multiSelect
+								formControlName="teamAgentIds"
+								[options]="availableAgents()"
+								optionLabel="name"
+								optionValue="id"
+								placeholder="Select team members"
+								[filter]="true"
+								filterPlaceHolder="Search agents..."
+								inputId="teamAgentIds"
+								class="w-full"
+							></p-multiSelect>
+							<small class="helper-text"
+								>Other agents that work together with this
+								agent</small
+							>
+						</div>
+
+						<div class="form-actions">
+							<button
+								pButton
+								label="Cancel"
+								aria-label="Cancel"
+								class="p-button-outlined"
+								(click)="cancel()"
+								type="button"
+							></button>
+							<button
+								pButton
+								[label]="saving() ? 'Saving...' : 'Save'"
+								aria-label="Save"
+								icon="pi pi-check"
+								(click)="save()"
+								[disabled]="saving() || form.invalid"
+								[loading]="saving()"
+								type="button"
+							></button>
+						</div>
+					</div>
+				</p-tabpanel>
+
+				<!-- Tab 4: Judging -->
+				<p-tabpanel value="4">
+					<div class="form-container">
+						@if (!form.get('canJudge')?.value) {
+						<p-message severity="warn">
+							This agent has judging disabled. Enable "Can Judge"
+							on the General tab to use these settings.
+						</p-message>
+						}
+
+						<div class="field">
+							<label for="evaluationCategories"
+								>Evaluation Categories</label
+							>
+							<textarea
+								id="evaluationCategories"
+								pTextarea
+								formControlName="evaluationCategories"
+								[autoResize]="true"
+								[rows]="3"
+								placeholder="e.g. composition, lighting, color accuracy"
+								class="w-full"
+							></textarea>
+							<small class="helper-text"
+								>Comma-separated categories for evaluation
+								scoring</small
+							>
+						</div>
+
+						<div class="field-row">
+							<div class="field">
+								<label for="optimizationWeight"
+									>Optimization Weight</label
+								>
+								<p-inputNumber
+									formControlName="optimizationWeight"
+									[min]="0"
+									[max]="100"
+									[showButtons]="true"
+									inputId="optimizationWeight"
+								></p-inputNumber>
+								<small class="helper-text"
+									>Weight for prompt optimization
+									feedback</small
+								>
+							</div>
+
+							<div class="field">
+								<label for="scoringWeight"
+									>Scoring Weight</label
+								>
+								<p-inputNumber
+									formControlName="scoringWeight"
+									[min]="0"
+									[max]="100"
+									[showButtons]="true"
+									inputId="scoringWeight"
+								></p-inputNumber>
+								<small class="helper-text"
+									>Weight for aggregate score
+									calculation</small
+								>
+							</div>
+						</div>
+
+						<p-divider></p-divider>
+
+						<div class="field">
+							<label for="judgePrompt">Judge Prompt</label>
+							<textarea
+								id="judgePrompt"
+								pTextarea
+								formControlName="judgePrompt"
+								[autoResize]="true"
+								[rows]="8"
+								placeholder="Leave empty to use the system default judge template. Enter a custom prompt to override how this agent formats evaluation output."
+								class="w-full system-prompt-textarea"
+							></textarea>
+							<small class="helper-text"
+								>Custom evaluation output format. When empty, a
+								shared system template is used
+								automatically.</small
+							>
+						</div>
+
+						<div class="form-actions">
+							<button
+								pButton
+								label="Cancel"
+								aria-label="Cancel"
+								class="p-button-outlined"
+								(click)="cancel()"
+								type="button"
+							></button>
+							<button
+								pButton
+								[label]="saving() ? 'Saving...' : 'Save'"
+								aria-label="Save"
+								icon="pi pi-check"
+								(click)="save()"
+								[disabled]="saving() || form.invalid"
+								[loading]="saving()"
+								type="button"
+							></button>
+						</div>
+					</div>
+				</p-tabpanel>
+
+				<!-- Tab 5: Weights & RAG -->
+				<p-tabpanel value="5">
+					<div class="form-container">
+						<div class="field">
+							<label for="templateId">Template ID</label>
+							<input
+								id="templateId"
+								pInputText
+								formControlName="templateId"
+								placeholder="Optional template identifier"
+								class="w-full"
+							/>
+						</div>
+
+						<h3>RAG Configuration</h3>
+
+						<div class="field-row">
+							<div class="field">
+								<label for="ragTopK">Top K Results</label>
+								<p-inputNumber
+									formControlName="ragTopK"
+									[min]="1"
+									[max]="20"
+									[showButtons]="true"
+									inputId="ragTopK"
+								></p-inputNumber>
+								<small class="helper-text"
+									>Number of similar documents to retrieve
+									(1-20)</small
+								>
+							</div>
+
+							<div class="field">
+								<label for="ragSimilarityThreshold"
+									>Similarity Threshold</label
+								>
+								<p-inputNumber
+									formControlName="ragSimilarityThreshold"
+									[min]="0"
+									[max]="1"
+									[step]="0.05"
+									[minFractionDigits]="2"
+									[maxFractionDigits]="2"
+									[showButtons]="true"
+									inputId="ragSimilarityThreshold"
+								></p-inputNumber>
+								<small class="helper-text"
+									>Minimum similarity score (0-1)</small
+								>
+							</div>
+						</div>
+
+						<div class="form-actions">
+							<button
+								pButton
+								label="Cancel"
+								aria-label="Cancel"
+								class="p-button-outlined"
+								(click)="cancel()"
+								type="button"
+							></button>
+							<button
+								pButton
+								[label]="saving() ? 'Saving...' : 'Save'"
+								aria-label="Save"
+								icon="pi pi-check"
+								(click)="save()"
+								[disabled]="saving() || form.invalid"
+								[loading]="saving()"
+								type="button"
+							></button>
+						</div>
+					</div>
+				</p-tabpanel>
+
+				<!-- Tab 6: Documents -->
+				<p-tabpanel value="6">
+					<div class="form-container">
+						<h3>Documents</h3>
+
+						@if (isCreateMode()) {
+						<p-message severity="info"
+							>Save the agent first to manage
+							documents.</p-message
+						>
+						} @else {
+						<div class="mb-3">
+							<p-fileUpload
+								mode="basic"
+								[auto]="true"
+								[customUpload]="true"
+								(uploadHandler)="onUploadDocument($event)"
+								chooseLabel="Upload Document"
+								accept=".pdf,.txt,.doc,.docx"
+								[maxFileSize]="10000000"
+								[disabled]="uploadingDocument()"
+							></p-fileUpload>
+						</div>
+
+						@if (loadingDocuments()) {
+						<p-progressSpinner
+							[style]="{ width: '40px', height: '40px' }"
+						></p-progressSpinner>
+						} @else if (documents().length > 0) {
+						<p-table
+							[value]="documents()"
+							styleClass="p-datatable-sm"
+						>
+							<ng-template pTemplate="header">
+								<tr>
+									<th>Filename</th>
+									<th>Type</th>
+									<th>Chunks</th>
+									<th>Uploaded</th>
+									<th class="actions-column">Actions</th>
+								</tr>
+							</ng-template>
+							<ng-template pTemplate="body" let-doc>
+								<tr>
+									<td>{{ doc.filename }}</td>
+									<td>{{ doc.mimeType }}</td>
+									<td>{{ doc.chunkCount }}</td>
+									<td>{{ formatDate(doc.createdAt) }}</td>
+									<td>
+										<button
+											pButton
+											icon="pi pi-trash"
+											aria-label="Delete Document"
+											class="p-button-rounded p-button-text p-button-sm p-button-danger"
+											pTooltip="Delete Document"
+											(click)="deleteDocument(doc)"
+										></button>
+									</td>
+								</tr>
+							</ng-template>
+							<ng-template pTemplate="emptymessage">
+								<tr>
+									<td colspan="5" class="empty-message">
+										No documents uploaded yet
+									</td>
+								</tr>
+							</ng-template>
+						</p-table>
+						} @else {
+						<p class="muted-text">
+							No documents uploaded yet. Upload a PDF or text file
+							to provide context for this agent.
+						</p>
+						} }
+					</div>
+				</p-tabpanel>
+
+				<!-- Tab 7: Test / Evaluate -->
+				<p-tabpanel value="7">
+					<div class="form-container">
+						@if (isCreateMode()) {
+						<p-message severity="info"
+							>Save the agent first to run evaluations.</p-message
+						>
+						} @else if (agent()) {
+						<app-image-evaluator
+							[judgeId]="agent()!.id"
+							[showJudgePicker]="false"
+							[showImageSourceOptions]="true"
+						></app-image-evaluator>
+						}
+					</div>
+				</p-tabpanel>
+			</p-tabpanels>
+		</form>
+	</p-tabs>
+	}
+</div>
+
+<p-toast></p-toast>

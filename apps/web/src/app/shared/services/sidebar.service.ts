@@ -28,6 +28,12 @@ export class SidebarService {
 			label: 'My Projects',
 			route: '/projects',
 		},
+		{
+			id: 'my-agents',
+			icon: 'objects-column',
+			label: 'My Agents',
+			route: '/my-agents',
+		},
 	]);
 
 	public readonly navigationItems = this.navItems.asReadonly();
