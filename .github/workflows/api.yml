@@ -24,7 +24,7 @@ jobs:
         run: |
           export NODE_OPTIONS="--max_old_space_size=4096"
           cd apps/api
-          npm i --ignore-scripts
+          npm i --ignore-scripts --legacy-peer-deps
           npm run db:migrations:build
           npm run build
           git config user.email "github-actions[bot]@users.noreply.github.com"
