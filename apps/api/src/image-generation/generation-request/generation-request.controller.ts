@@ -51,6 +51,7 @@ import {
 	GeneratedImage,
 	GenerationMode,
 } from '../entities';
+import { getImageDimensions } from '../utils/image-processing.utils';
 
 import { GenerationRequestService } from './generation-request.service';
 import { RequestCreateDto, RequestContinueDto } from './dtos';
@@ -223,14 +224,21 @@ export class GenerationRequestController {
 			'image/webp': 'webp',
 		};
 
-		const url = await this.requestService.uploadComplianceImage(
-			orgId,
-			file.buffer,
-			file.mimetype,
-			extMap[file.mimetype],
-		);
+		const [url, dimensions] = await Promise.all([
+			this.requestService.uploadComplianceImage(
+				orgId,
+				file.buffer,
+				file.mimetype,
+				extMap[file.mimetype],
+			),
+			getImageDimensions(file.buffer),
+		]);
 
-		return new ResponseEnvelope(ResponseStatus.Success, undefined, { url });
+		return new ResponseEnvelope(ResponseStatus.Success, undefined, {
+			url,
+			width: dimensions.width,
+			height: dimensions.height,
+		});
 	}
 
 	@Get(':id')
@@ -275,13 +283,97 @@ export class GenerationRequestController {
 	}
 
 	@Sse(':id/stream')
-	@ApiOperation({ summary: 'Stream generation request events via SSE' })
-	@ApiParam({ name: 'orgId', type: 'string', format: 'uuid' })
-	@ApiParam({ name: 'id', type: 'string', format: 'uuid' })
-	@ApiQuery({ name: 'token', required: true, description: 'JWT auth token' })
-	@ApiResponse({ status: 200, description: 'SSE event stream' })
-	@ApiResponse({ status: 401, description: 'Invalid or expired token' })
-	@ApiResponse({ status: 404, description: 'Request not found' })
+	@ApiOperation({
+		summary: 'Stream generation request events via SSE',
+		description: `
+Subscribe to real-time Server-Sent Events (SSE) for a generation request. Returns a stream of events tracking the request lifecycle.
+
+**Event Types:**
+- \`initial_state\`: Full current state sent immediately on connection (includes request and images)
+- \`status_change\`: Status updated (pending, optimizing, generating, evaluating)
+- \`iteration_complete\`: One iteration finished (includes new images and scores)
+- \`completed\`: Request completed successfully
+- \`failed\`: Request failed with error
+
+**Authentication:**
+Since EventSource API cannot send custom headers, authentication is via \`?token=<JWT>\` query parameter.
+
+**Connection:**
+\`\`\`javascript
+const eventSource = new EventSource('/organization/{orgId}/image-generation/requests/{id}/stream?token=YOUR_JWT');
+eventSource.addEventListener('iteration_complete', (e) => {
+  const data = JSON.parse(e.data);
+  console.log('Iteration:', data.iteration.iterationNumber);
+});
+\`\`\`
+		`,
+	})
+	@ApiParam({
+		name: 'orgId',
+		type: 'string',
+		format: 'uuid',
+		description: 'Organization ID',
+	})
+	@ApiParam({
+		name: 'id',
+		type: 'string',
+		format: 'uuid',
+		description: 'Generation request ID',
+	})
+	@ApiQuery({
+		name: 'token',
+		required: true,
+		description:
+			'JWT authentication token (required as query param for EventSource compatibility)',
+		example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+	})
+	@ApiResponse({
+		status: 200,
+		description: 'SSE event stream successfully established',
+		schema: {
+			type: 'object',
+			properties: {
+				type: {
+					type: 'string',
+					enum: [
+						'initial_state',
+						'status_change',
+						'iteration_complete',
+						'completed',
+						'failed',
+					],
+					description: 'Event type identifier',
+				},
+				data: {
+					type: 'object',
+					description:
+						'Event payload (structure varies by event type)',
+				},
+			},
+			example: {
+				type: 'iteration_complete',
+				data: {
+					iteration: {
+						iterationNumber: 3,
+						optimizedPrompt: 'A cinematic...',
+						aggregateScore: 78.5,
+						selectedImageId: 'uuid-here',
+					},
+					imageIds: ['uuid1', 'uuid2', 'uuid3'],
+					strategy: 'regenerate',
+				},
+			},
+		},
+	})
+	@ApiResponse({
+		status: 401,
+		description:
+			'Invalid or expired authentication token, or organization access denied',
+	})
+	@ApiResponse({
+		status: 404,
+		description: 'Generation request not found or access denied',
+	})
 	public async streamRequest(
 		@Param('orgId', ParseUUIDPipe) orgId: string,
 		@Param('id', ParseUUIDPipe) id: string,

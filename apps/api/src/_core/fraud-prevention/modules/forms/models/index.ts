@@ -1,8 +1,8 @@
-import {
-	ApiProperty,
-	ApiPropertyOptional,
-	getSchemaPath,
-} from '@nestjs/swagger';
+import { ApiProperty } from '@nestjs/swagger';
+// Note: ApiPropertyOptional and getSchemaPath deprecated - using ApiProperty with required: false
+const ApiPropertyOptional = (options?: any) =>
+	ApiProperty({ ...options, required: false });
+const getSchemaPath = (model: any) => model.name || String(model);
 import { Type, DiscriminatorDescriptor } from 'class-transformer';
 import {
 	IsString,

@@ -238,7 +238,25 @@ export class GenerationRequestService {
 		return this.imageRepository.save(entity);
 	}
 
-	public async getImage(id: string) {
+	/**
+	 * Get an image by ID with organization scoping
+	 * @param id Image ID
+	 * @param organizationId Organization ID for scoping (prevents cross-org access)
+	 */
+	public async getImage(id: string, organizationId?: string) {
+		// If organizationId provided, scope query through request relation
+		if (organizationId) {
+			return this.imageRepository
+				.createQueryBuilder('image')
+				.innerJoin('image.request', 'request')
+				.where('image.id = :id', { id })
+				.andWhere('request.organizationId = :organizationId', {
+					organizationId,
+				})
+				.getOne();
+		}
+
+		// Fallback for internal usage without org scope (orchestration service has request context)
 		return this.imageRepository.findOne({ where: { id } });
 	}
 
