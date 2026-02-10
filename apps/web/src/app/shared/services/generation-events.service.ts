@@ -51,7 +51,7 @@ export class GenerationEventsService implements OnDestroy {
 			signal: ctrl.signal,
 			openWhenHidden: true, // Keep connection alive when tab is hidden
 
-			onopen: async (response) => {
+			onopen: async (response: Response) => {
 				if (!response.ok) {
 					throw new Error(
 						`SSE connection failed: ${response.status}`,
@@ -59,7 +59,7 @@ export class GenerationEventsService implements OnDestroy {
 				}
 			},
 
-			onmessage: (event) => {
+			onmessage: (event: { data: string }) => {
 				try {
 					const data = JSON.parse(event.data) as GenerationEvent;
 					subject.next(data);
@@ -77,7 +77,7 @@ export class GenerationEventsService implements OnDestroy {
 				}
 			},
 
-			onerror: (err) => {
+			onerror: (err: unknown) => {
 				if (ctrl.signal.aborted) {
 					// Intentional disconnect — don't emit error
 					return;
@@ -90,7 +90,7 @@ export class GenerationEventsService implements OnDestroy {
 				subject.complete();
 				this.cleanup(requestId);
 			},
-		}).catch((err) => {
+		}).catch((err: unknown) => {
 			if (!ctrl.signal.aborted) {
 				subject.error(err);
 				this.cleanup(requestId);

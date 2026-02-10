@@ -24,4 +24,12 @@ export const TOOL_REGISTRY: ToolDefinition[] = [
 		icon: 'verified',
 		routeFragment: 'compliance',
 	},
+	{
+		id: 'image-editing',
+		name: 'Image Editing',
+		description:
+			'Canvas-based image editor with AI generation, inpainting, and composition management',
+		icon: 'palette',
+		routeFragment: 'image-editing',
+	},
 ];

@@ -38,6 +38,7 @@ import { TabsModule } from 'primeng/tabs';
 import { ToolbarModule } from 'primeng/toolbar';
 import { DrawerModule } from 'primeng/drawer';
 import { AccordionModule } from 'primeng/accordion';
+import { SplitterModule } from 'primeng/splitter';
 
 // Overlay Components
 import { TooltipModule } from 'primeng/tooltip';
@@ -112,6 +113,7 @@ const primeNgModules = [
 	ToolbarModule,
 	DrawerModule,
 	AccordionModule,
+	SplitterModule,
 
 	// Misc Components
 	DividerModule,

@@ -17,6 +17,8 @@ import { JudgeDetailPage } from './judge-detail/judge-detail.page';
 		SharedModule,
 		PrimeNgModule,
 		ConfirmDialogModule,
+		JudgesPage,
+		JudgeDetailPage,
 		RouterModule.forChild([
 			{
 				path: '',
@@ -31,8 +33,6 @@ import { JudgeDetailPage } from './judge-detail/judge-detail.page';
 				component: JudgeDetailPage,
 			},
 		]),
-		JudgesPage,
-		JudgeDetailPage,
 	],
 })
 export class JudgesPageModule {}

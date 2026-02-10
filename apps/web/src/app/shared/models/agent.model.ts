@@ -1,8 +1,7 @@
 /**
  * Agent-related types for the web application.
  *
- * DTOs are imported from the API to ensure consistency.
- * Interfaces match the backend entity toPublic() responses.
+ * DTOs and entity types are imported from the API to ensure consistency.
  * Documents come from a separate API call (GET /agents/:id/documents).
  */
 
@@ -11,13 +10,23 @@ export type { AgentCreateDto } from '@api/agent/dtos';
 export type { AgentUpdateDto } from '@api/agent/dtos';
 export type { RagConfigDto } from '@api/agent/dtos';
 
-// RagConfig interface
-export interface RagConfig {
-	topK: number;
-	similarityThreshold: number;
-}
+// Import enums from API (these need to be value imports, not type imports)
+import {
+	AgentType,
+	ModelTier,
+	ThinkingLevel,
+	AgentStatus,
+} from '@api/agent/agent.entity';
 
-// Enum option constants for dropdowns
+// Import types separately
+import type { RagConfig } from '@api/agent/agent.entity';
+
+// Re-export for external use
+export { AgentType, ModelTier, ThinkingLevel, AgentStatus };
+
+export type { RagConfig };
+
+// Enum option constants for dropdowns (mapping enums to label/value pairs)
 export const AGENT_TYPES: { label: string; value: string }[] = [
 	{ label: 'Expert (Full Context)', value: 'EXPERT' },
 	{ label: 'Audience (Summarized)', value: 'AUDIENCE' },
@@ -34,7 +43,10 @@ export const THINKING_LEVELS: { label: string; value: string }[] = [
 	{ label: 'High', value: 'HIGH' },
 ];
 
-// Agent interface matching API toPublic() response
+/**
+ * Agent interface matching API toPublic() response.
+ * This matches the structure returned by Agent.toPublic() in the backend.
+ */
 export interface Agent {
 	id: string;
 	organizationId: string;
@@ -46,8 +58,8 @@ export interface Agent {
 	ragConfig: RagConfig;
 	templateId?: string;
 	createdBy?: string;
-	createdAt: string;
-	updatedAt: string;
+	createdAt: Date | string;
+	updatedAt: Date | string;
 	canJudge: boolean;
 	description?: string;
 	teamPrompt?: string;
@@ -61,6 +73,7 @@ export interface Agent {
 	temperature?: number;
 	maxTokens?: number;
 	avatarUrl?: string;
+	judgePrompt?: string | null;
 }
 
 // AgentDocument interface matching API toPublic() response

@@ -119,18 +119,32 @@
 			font-size: 1.1rem;
 		}
 	}
+
+	.empty-message {
+		text-align: center;
+		color: var(--p-text-color-secondary);
+	}
+
+	.muted-text {
+		color: var(--p-text-muted-color);
+	}
+
+	.actions-column {
+		width: 5rem;
+	}
 }
 
+// PrimeNG component style overrides
+// Note: ::ng-deep is necessary for styling PrimeNG components that don't expose Pass Through API options
 :host ::ng-deep {
+	// Limit textarea height with scroll for long system prompts
 	.system-prompt-textarea {
-		max-height: 400px;
+		max-height: 25rem;
 		overflow-y: auto !important;
 	}
 
-	p-multiselect .p-multiselect {
-		width: 100%;
-	}
-
+	// Ensure full width for select components
+	p-multiselect .p-multiselect,
 	p-select .p-select {
 		width: 100%;
 	}

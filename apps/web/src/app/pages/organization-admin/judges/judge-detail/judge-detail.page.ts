@@ -19,7 +19,13 @@ import { ConfirmDialogModule } from 'primeng/confirmdialog';
 import { AgentService } from '../../../../shared/services/agent.service';
 import {
 	Agent,
+	AgentCreateDto,
+	AgentUpdateDto,
 	AgentDocument,
+	AgentStatus,
+	AgentType,
+	ModelTier,
+	ThinkingLevel,
 	AGENT_TYPES,
 	MODEL_TIERS,
 	THINKING_LEVELS,
@@ -33,6 +39,7 @@ import { ImageEvaluatorComponent } from '../../../../shared/components/image-eva
 	templateUrl: './judge-detail.page.html',
 	styleUrls: ['./judge-detail.page.scss'],
 	changeDetection: ChangeDetectionStrategy.OnPush,
+	standalone: true,
 	imports: [
 		CommonModule,
 		FormsModule,
@@ -67,6 +74,7 @@ export class JudgeDetailPage implements OnInit {
 		}),
 		description: new FormControl('', { nonNullable: true }),
 		canJudge: new FormControl(true, { nonNullable: true }),
+		// Status is stored as boolean in form for toggle switch, converted to enum on save
 		status: new FormControl(true, { nonNullable: true }),
 		avatarUrl: new FormControl('', { nonNullable: true }),
 		// Prompts
@@ -75,7 +83,6 @@ export class JudgeDetailPage implements OnInit {
 			validators: [Validators.required],
 		}),
 		teamPrompt: new FormControl('', { nonNullable: true }),
-		evaluationCategories: new FormControl('', { nonNullable: true }),
 		aiSummary: new FormControl('', { nonNullable: true }),
 		// Model Configuration
 		agentType: new FormControl<string | null>(null),
@@ -86,10 +93,13 @@ export class JudgeDetailPage implements OnInit {
 		// Team & Capabilities
 		capabilities: new FormControl<string[]>([], { nonNullable: true }),
 		teamAgentIds: new FormControl<string[]>([], { nonNullable: true }),
-		// Weights & RAG
-		templateId: new FormControl('', { nonNullable: true }),
+		// Judging
+		evaluationCategories: new FormControl('', { nonNullable: true }),
 		optimizationWeight: new FormControl(50, { nonNullable: true }),
 		scoringWeight: new FormControl(50, { nonNullable: true }),
+		judgePrompt: new FormControl<string | null>(null),
+		// Weights & RAG
+		templateId: new FormControl('', { nonNullable: true }),
 		ragTopK: new FormControl(5, { nonNullable: true }),
 		ragSimilarityThreshold: new FormControl(0.7, { nonNullable: true }),
 	});
@@ -145,7 +155,7 @@ export class JudgeDetailPage implements OnInit {
 					name: agentData.name || '',
 					description: agentData.description || '',
 					canJudge: agentData.canJudge !== false,
-					status: agentData.status !== 'INACTIVE',
+					status: agentData.status === 'ACTIVE',
 					avatarUrl: agentData.avatarUrl || '',
 					systemPrompt: agentData.systemPrompt || '',
 					teamPrompt: agentData.teamPrompt || '',
@@ -158,6 +168,7 @@ export class JudgeDetailPage implements OnInit {
 					maxTokens: agentData.maxTokens ?? null,
 					capabilities: agentData.capabilities || [],
 					teamAgentIds: agentData.teamAgentIds || [],
+					judgePrompt: agentData.judgePrompt ?? null,
 					templateId: agentData.templateId || '',
 					optimizationWeight: agentData.optimizationWeight ?? 50,
 					scoringWeight: agentData.scoringWeight ?? 50,
@@ -190,37 +201,40 @@ export class JudgeDetailPage implements OnInit {
 		this.saving.set(true);
 		const formValue = this.form.getRawValue();
 
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		const dto: any = {
-			name: formValue.name,
-			systemPrompt: formValue.systemPrompt,
-			evaluationCategories: formValue.evaluationCategories || undefined,
-			templateId: formValue.templateId || undefined,
-			optimizationWeight: formValue.optimizationWeight,
-			scoringWeight: formValue.scoringWeight,
-			ragConfig: {
-				topK: formValue.ragTopK,
-				similarityThreshold: formValue.ragSimilarityThreshold,
-			},
-			description: formValue.description || undefined,
-			canJudge: formValue.canJudge,
-			status: formValue.status ? 'ACTIVE' : 'INACTIVE',
-			agentType: formValue.agentType || undefined,
-			modelTier: formValue.modelTier || undefined,
-			thinkingLevel: formValue.thinkingLevel || undefined,
-			teamPrompt: formValue.teamPrompt || undefined,
-			capabilities: formValue.capabilities.length
-				? formValue.capabilities
-				: undefined,
-			teamAgentIds: formValue.teamAgentIds.length
-				? formValue.teamAgentIds
-				: undefined,
-			temperature: formValue.temperature ?? undefined,
-			maxTokens: formValue.maxTokens ?? undefined,
-			avatarUrl: formValue.avatarUrl || undefined,
-		};
-
 		if (this.isCreateMode()) {
+			const dto: AgentCreateDto = {
+				name: formValue.name,
+				systemPrompt: formValue.systemPrompt,
+				evaluationCategories:
+					formValue.evaluationCategories || undefined,
+				templateId: formValue.templateId || undefined,
+				optimizationWeight: formValue.optimizationWeight,
+				scoringWeight: formValue.scoringWeight,
+				ragConfig: {
+					topK: formValue.ragTopK,
+					similarityThreshold: formValue.ragSimilarityThreshold,
+				},
+				description: formValue.description || undefined,
+				canJudge: formValue.canJudge,
+				status: formValue.status
+					? AgentStatus.ACTIVE
+					: AgentStatus.INACTIVE,
+				agentType: (formValue.agentType as AgentType) || undefined,
+				modelTier: (formValue.modelTier as ModelTier) || undefined,
+				thinkingLevel:
+					(formValue.thinkingLevel as ThinkingLevel) || undefined,
+				teamPrompt: formValue.teamPrompt || undefined,
+				capabilities: formValue.capabilities.length
+					? formValue.capabilities
+					: undefined,
+				teamAgentIds: formValue.teamAgentIds.length
+					? formValue.teamAgentIds
+					: undefined,
+				temperature: formValue.temperature ?? undefined,
+				maxTokens: formValue.maxTokens ?? undefined,
+				avatarUrl: formValue.avatarUrl || undefined,
+				judgePrompt: formValue.judgePrompt || undefined,
+			};
 			this.agentService.createAgent(this.organizationId, dto).subscribe({
 				next: () => {
 					this.messageService.add({
@@ -244,6 +258,42 @@ export class JudgeDetailPage implements OnInit {
 				},
 			});
 		} else {
+			const dto: AgentUpdateDto = {
+				name: formValue.name,
+				systemPrompt: formValue.systemPrompt,
+				evaluationCategories:
+					formValue.evaluationCategories || undefined,
+				templateId: formValue.templateId || undefined,
+				optimizationWeight: formValue.optimizationWeight,
+				scoringWeight: formValue.scoringWeight,
+				ragConfig: {
+					topK: formValue.ragTopK,
+					similarityThreshold: formValue.ragSimilarityThreshold,
+				},
+				description: formValue.description || undefined,
+				canJudge: formValue.canJudge,
+				status: formValue.status
+					? AgentStatus.ACTIVE
+					: AgentStatus.INACTIVE,
+				agentType: (formValue.agentType as AgentType) || undefined,
+				modelTier: (formValue.modelTier as ModelTier) || undefined,
+				thinkingLevel:
+					(formValue.thinkingLevel as ThinkingLevel) || undefined,
+				teamPrompt: formValue.teamPrompt || undefined,
+				capabilities: formValue.capabilities.length
+					? formValue.capabilities
+					: undefined,
+				teamAgentIds: formValue.teamAgentIds.length
+					? formValue.teamAgentIds
+					: undefined,
+				temperature: formValue.temperature ?? undefined,
+				maxTokens: formValue.maxTokens ?? undefined,
+				avatarUrl: formValue.avatarUrl || undefined,
+				judgePrompt:
+					formValue.judgePrompt === ''
+						? null
+						: formValue.judgePrompt || undefined,
+			};
 			this.agentService
 				.updateAgent(this.organizationId, this.agentId!, dto)
 				.subscribe({

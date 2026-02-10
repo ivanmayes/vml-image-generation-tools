@@ -10,6 +10,11 @@ export default defineConfig({
 			workspaceRoot: resolve(__dirname),
 		}),
 	],
+	resolve: {
+		alias: {
+			'@api': resolve(__dirname, '../api/src'),
+		},
+	},
 	test: {
 		globals: true,
 		environment: 'happy-dom',
