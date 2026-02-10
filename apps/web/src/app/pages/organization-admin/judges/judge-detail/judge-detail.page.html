@@ -26,9 +26,10 @@
 			<p-tab value="1">Prompts</p-tab>
 			<p-tab value="2">Model Configuration</p-tab>
 			<p-tab value="3">Team & Capabilities</p-tab>
-			<p-tab value="4">Weights & RAG</p-tab>
-			<p-tab value="5">Documents</p-tab>
-			<p-tab value="6">Test / Evaluate</p-tab>
+			<p-tab value="4">Judging</p-tab>
+			<p-tab value="5">Weights & RAG</p-tab>
+			<p-tab value="6">Documents</p-tab>
+			<p-tab value="7">Test / Evaluate</p-tab>
 		</p-tablist>
 
 		<form [formGroup]="form">
@@ -168,25 +169,6 @@
 							<small class="helper-text"
 								>Prompt context when agent works in a
 								team</small
-							>
-						</div>
-
-						<div class="field">
-							<label for="evaluationCategories"
-								>Evaluation Categories</label
-							>
-							<textarea
-								id="evaluationCategories"
-								pTextarea
-								formControlName="evaluationCategories"
-								[autoResize]="true"
-								[rows]="3"
-								placeholder="e.g. composition, lighting, color accuracy"
-								class="w-full"
-							></textarea>
-							<small class="helper-text"
-								>Comma-separated categories for evaluation
-								scoring</small
 							>
 						</div>
 
@@ -397,18 +379,33 @@
 					</div>
 				</p-tabpanel>
 
-				<!-- Tab 4: Weights & RAG -->
+				<!-- Tab 4: Judging -->
 				<p-tabpanel value="4">
 					<div class="form-container">
+						@if (!form.get('canJudge')?.value) {
+						<p-message severity="warn">
+							This agent has judging disabled. Enable "Can Judge"
+							on the General tab to use these settings.
+						</p-message>
+						}
+
 						<div class="field">
-							<label for="templateId">Template ID</label>
-							<input
-								id="templateId"
-								pInputText
-								formControlName="templateId"
-								placeholder="Optional template identifier"
+							<label for="evaluationCategories"
+								>Evaluation Categories</label
+							>
+							<textarea
+								id="evaluationCategories"
+								pTextarea
+								formControlName="evaluationCategories"
+								[autoResize]="true"
+								[rows]="3"
+								placeholder="e.g. composition, lighting, color accuracy"
 								class="w-full"
-							/>
+							></textarea>
+							<small class="helper-text"
+								>Comma-separated categories for evaluation
+								scoring</small
+							>
 						</div>
 
 						<div class="field-row">
@@ -423,6 +420,10 @@
 									[showButtons]="true"
 									inputId="optimizationWeight"
 								></p-inputNumber>
+								<small class="helper-text"
+									>Weight for prompt optimization
+									feedback</small
+								>
 							</div>
 
 							<div class="field">
@@ -436,10 +437,69 @@
 									[showButtons]="true"
 									inputId="scoringWeight"
 								></p-inputNumber>
+								<small class="helper-text"
+									>Weight for aggregate score
+									calculation</small
+								>
 							</div>
 						</div>
 
 						<p-divider></p-divider>
+
+						<div class="field">
+							<label for="judgePrompt">Judge Prompt</label>
+							<textarea
+								id="judgePrompt"
+								pTextarea
+								formControlName="judgePrompt"
+								[autoResize]="true"
+								[rows]="8"
+								placeholder="Leave empty to use the system default judge template. Enter a custom prompt to override how this agent formats evaluation output."
+								class="w-full system-prompt-textarea"
+							></textarea>
+							<small class="helper-text"
+								>Custom evaluation output format. When empty, a
+								shared system template is used
+								automatically.</small
+							>
+						</div>
+
+						<div class="form-actions">
+							<button
+								pButton
+								label="Cancel"
+								aria-label="Cancel"
+								class="p-button-outlined"
+								(click)="cancel()"
+								type="button"
+							></button>
+							<button
+								pButton
+								[label]="saving() ? 'Saving...' : 'Save'"
+								aria-label="Save"
+								icon="pi pi-check"
+								(click)="save()"
+								[disabled]="saving() || form.invalid"
+								[loading]="saving()"
+								type="button"
+							></button>
+						</div>
+					</div>
+				</p-tabpanel>
+
+				<!-- Tab 5: Weights & RAG -->
+				<p-tabpanel value="5">
+					<div class="form-container">
+						<div class="field">
+							<label for="templateId">Template ID</label>
+							<input
+								id="templateId"
+								pInputText
+								formControlName="templateId"
+								placeholder="Optional template identifier"
+								class="w-full"
+							/>
+						</div>
 
 						<h3>RAG Configuration</h3>
 
@@ -502,8 +562,8 @@
 					</div>
 				</p-tabpanel>
 
-				<!-- Tab 5: Documents -->
-				<p-tabpanel value="5">
+				<!-- Tab 6: Documents -->
+				<p-tabpanel value="6">
 					<div class="form-container">
 						<h3>Documents</h3>
 
@@ -541,7 +601,7 @@
 									<th>Type</th>
 									<th>Chunks</th>
 									<th>Uploaded</th>
-									<th style="width: 80px">Actions</th>
+									<th class="actions-column">Actions</th>
 								</tr>
 							</ng-template>
 							<ng-template pTemplate="body" let-doc>
@@ -564,14 +624,14 @@
 							</ng-template>
 							<ng-template pTemplate="emptymessage">
 								<tr>
-									<td colspan="5" class="text-center">
+									<td colspan="5" class="empty-message">
 										No documents uploaded yet
 									</td>
 								</tr>
 							</ng-template>
 						</p-table>
 						} @else {
-						<p class="text-muted">
+						<p class="muted-text">
 							No documents uploaded yet. Upload a PDF or text file
 							to provide context for this agent.
 						</p>
@@ -579,8 +639,8 @@
 					</div>
 				</p-tabpanel>
 
-				<!-- Tab 6: Test / Evaluate -->
-				<p-tabpanel value="6">
+				<!-- Tab 7: Test / Evaluate -->
+				<p-tabpanel value="7">
 					<div class="form-container">
 						@if (isCreateMode()) {
 						<p-message severity="info"
