@@ -117,9 +117,8 @@
 				(activeIndexChange)="onActiveIndexChange($event)"
 				[showItemNavigators]="true"
 				[showItemNavigatorsOnHover]="false"
-				[numVisible]="7"
+				[showThumbnails]="false"
 				[circular]="false"
-				[responsiveOptions]="responsiveOptions"
 			>
 				<ng-template #item let-ctx>
 					<div class="gallery-item">
@@ -132,31 +131,6 @@
 							"
 							class="gallery-item__image"
 						/>
-					</div>
-				</ng-template>
-				<ng-template #thumbnail let-ctx>
-					<div
-						class="gallery-thumb"
-						[class.gallery-thumb--group-start]="
-							ctx.isFirstInGroup && ctx.flatIndex > 0
-						"
-						[class.gallery-thumb--selected]="ctx.isSelected"
-					>
-						<img
-							[src]="ctx.image.s3Url"
-							alt="Thumbnail"
-							class="gallery-thumb__image"
-						/>
-						@if (ctx.isFirstInGroup) {
-							<span class="gallery-thumb__iteration-badge">
-								{{ ctx.image.iterationNumber }}
-							</span>
-						}
-						@if (ctx.isSelected) {
-							<span class="gallery-thumb__selected-badge">
-								<i class="pi pi-check"></i>
-							</span>
-						}
 					</div>
 				</ng-template>
 				<ng-template #footer>
@@ -175,6 +149,62 @@
 					</div>
 				</ng-template>
 			</p-galleria>
+
+			<!-- Custom thumbnail strip -->
+			<div class="thumb-strip">
+				<button
+					type="button"
+					class="thumb-strip__nav thumb-strip__nav--prev"
+					(click)="scrollThumbnails('prev')"
+					aria-label="Previous thumbnails"
+				>
+					<i class="pi pi-chevron-left"></i>
+				</button>
+				<div class="thumb-strip__viewport" #thumbViewport>
+					<div class="thumb-strip__track">
+						@for (ctx of imageContexts(); track ctx.flatIndex) {
+							<!-- eslint-disable-next-line @angular-eslint/template/click-events-have-key-events, @angular-eslint/template/interactive-supports-focus -->
+							<div
+								class="gallery-thumb"
+								[class.gallery-thumb--group-start]="
+									ctx.isFirstInGroup && ctx.flatIndex > 0
+								"
+								[class.gallery-thumb--active]="
+									ctx.flatIndex === activeIndex()
+								"
+								[class.gallery-thumb--selected]="ctx.isSelected"
+								(click)="onActiveIndexChange(ctx.flatIndex)"
+							>
+								<img
+									[src]="ctx.image.s3Url"
+									alt="Thumbnail"
+									class="gallery-thumb__image"
+								/>
+								@if (ctx.isFirstInGroup) {
+									<span
+										class="gallery-thumb__iteration-badge"
+									>
+										{{ ctx.image.iterationNumber }}
+									</span>
+								}
+								@if (ctx.isSelected) {
+									<span class="gallery-thumb__selected-badge">
+										<i class="pi pi-check"></i>
+									</span>
+								}
+							</div>
+						}
+					</div>
+				</div>
+				<button
+					type="button"
+					class="thumb-strip__nav thumb-strip__nav--next"
+					(click)="scrollThumbnails('next')"
+					aria-label="Next thumbnails"
+				>
+					<i class="pi pi-chevron-right"></i>
+				</button>
+			</div>
 		</main>
 	</div>
 }

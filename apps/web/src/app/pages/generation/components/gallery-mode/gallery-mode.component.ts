@@ -3,11 +3,13 @@ import {
 	Component,
 	computed,
 	effect,
+	ElementRef,
 	HostListener,
 	input,
 	model,
 	signal,
 	untracked,
+	viewChild,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
@@ -42,10 +44,10 @@ export class GalleryModeComponent {
 
 	activeIndex = signal(0);
 
-	readonly responsiveOptions = [
-		{ breakpoint: '1024px', numVisible: 5 },
-		{ breakpoint: '768px', numVisible: 3 },
-	];
+	readonly thumbViewport = viewChild<ElementRef>('thumbViewport');
+
+	private readonly THUMB_ITEM_SIZE = 84; // 80px thumb + 4px gap
+	private readonly SCROLL_COUNT = 4;
 
 	readonly sortedImages = computed(() => {
 		return [...this.images()].sort((a, b) => {
@@ -107,15 +109,31 @@ export class GalleryModeComponent {
 						(img) => img.id === targetId,
 					);
 					if (idx >= 0) {
-						this.activeIndex.set(idx);
+						this.setActiveIndex(idx);
 					}
 				});
 			}
 		});
 	}
 
-	onActiveIndexChange(index: number): void {
+	private setActiveIndex(index: number): void {
 		this.activeIndex.set(index);
+		this.scrollToActiveThumb();
+	}
+
+	onActiveIndexChange(index: number): void {
+		this.setActiveIndex(index);
+	}
+
+	scrollThumbnails(direction: 'prev' | 'next'): void {
+		const viewport = this.thumbViewport()?.nativeElement;
+		if (!viewport) return;
+
+		const scrollAmount = this.THUMB_ITEM_SIZE * this.SCROLL_COUNT;
+		viewport.scrollBy({
+			left: direction === 'next' ? scrollAmount : -scrollAmount,
+			behavior: 'smooth',
+		});
 	}
 
 	close(): void {
@@ -148,7 +166,7 @@ export class GalleryModeComponent {
 	private navigatePrev(): void {
 		const current = this.activeIndex();
 		if (current > 0) {
-			this.activeIndex.set(current - 1);
+			this.setActiveIndex(current - 1);
 		}
 	}
 
@@ -156,7 +174,28 @@ export class GalleryModeComponent {
 		const current = this.activeIndex();
 		const total = this.sortedImages().length;
 		if (current < total - 1) {
-			this.activeIndex.set(current + 1);
+			this.setActiveIndex(current + 1);
 		}
+	}
+
+	private scrollToActiveThumb(): void {
+		setTimeout(() => {
+			const viewport = this.thumbViewport()?.nativeElement;
+			if (!viewport) return;
+
+			const thumbPos = this.activeIndex() * this.THUMB_ITEM_SIZE;
+			const vpWidth = viewport.clientWidth;
+			const scrollLeft = viewport.scrollLeft;
+
+			if (
+				thumbPos < scrollLeft ||
+				thumbPos + this.THUMB_ITEM_SIZE > scrollLeft + vpWidth
+			) {
+				viewport.scrollTo({
+					left: thumbPos - vpWidth / 2 + this.THUMB_ITEM_SIZE / 2,
+					behavior: 'smooth',
+				});
+			}
+		});
 	}
 }
