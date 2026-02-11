@@ -36,6 +36,8 @@ import { environment } from '../../../../environments/environment';
 import { PrimeNgModule } from '../../../shared/primeng.module';
 import { ImageEvaluatorComponent } from '../../../shared/components/image-evaluator/image-evaluator.component';
 
+import { JudgeAnalyticsComponent } from './components/judge-analytics/judge-analytics.component';
+
 @Component({
 	selector: 'app-my-agent-detail',
 	templateUrl: './my-agent-detail.page.html',
@@ -49,6 +51,7 @@ import { ImageEvaluatorComponent } from '../../../shared/components/image-evalua
 		ReactiveFormsModule,
 		ConfirmDialogModule,
 		ImageEvaluatorComponent,
+		JudgeAnalyticsComponent,
 	],
 })
 export class MyAgentDetailPage implements OnInit, OnDestroy {
@@ -486,16 +489,16 @@ Provide individual scores (0-100) for these categories:
 			.join('');
 	}
 
-	loadSystemPromptTemplate(): void {
-		const current = this.form.get('systemPrompt')?.value?.trim();
+	loadJudgePromptTemplate(): void {
+		const current = this.form.get('judgePrompt')?.value?.trim();
 		if (current) {
 			const confirmed = confirm(
-				'This will replace your current system prompt with a template. Continue?',
+				'This will replace your current judge prompt with a template. Continue?',
 			);
 			if (!confirmed) return;
 		}
-		this.form.get('systemPrompt')?.setValue(this.SYSTEM_PROMPT_TEMPLATE);
-		this.form.get('systemPrompt')?.markAsDirty();
+		this.form.get('judgePrompt')?.setValue(this.SYSTEM_PROMPT_TEMPLATE);
+		this.form.get('judgePrompt')?.markAsDirty();
 		this.formDirty.set(true);
 	}
 

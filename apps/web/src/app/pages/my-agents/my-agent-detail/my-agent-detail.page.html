@@ -61,6 +61,9 @@
 			<p-tab value="2">Judging</p-tab>
 			<p-tab value="3">Documents</p-tab>
 			<p-tab value="4">Test</p-tab>
+			@if (!isCreateMode() && agent()?.canJudge) {
+			<p-tab value="5">Analytics</p-tab>
+			}
 		</p-tablist>
 
 		<form [formGroup]="form">
@@ -185,28 +188,14 @@
 						<h2 class="heading-section section-heading">Prompts</h2>
 
 						<div class="field">
-							<div class="label-row">
-								<label
-									for="systemPrompt"
-									class="label-with-help"
-								>
-									System Prompt *
-									<i
-										class="pi pi-question-circle help-icon"
-										pTooltip="The core instructions that define this agent's personality, expertise, and behavior. This prompt is sent as the system message in every AI interaction. Be specific about the agent's domain knowledge, evaluation criteria, and response style."
-										tooltipPosition="right"
-									></i>
-								</label>
-								<p-button
-									icon="pi pi-file-edit"
-									label="Insert Example"
-									[text]="true"
-									size="small"
-									(onClick)="loadSystemPromptTemplate()"
-									pTooltip="Insert a best-practices judge prompt template to edit"
-									tooltipPosition="left"
-								/>
-							</div>
+							<label for="systemPrompt" class="label-with-help">
+								System Prompt *
+								<i
+									class="pi pi-question-circle help-icon"
+									pTooltip="The core instructions that define this agent's personality, expertise, and behavior. This prompt is sent as the system message in every AI interaction. Be specific about the agent's domain knowledge, evaluation criteria, and response style."
+									tooltipPosition="right"
+								></i>
+							</label>
 							<textarea
 								id="systemPrompt"
 								pTextarea
@@ -704,14 +693,28 @@
 						<p-divider></p-divider>
 
 						<div class="field">
-							<label for="judgePrompt" class="label-with-help">
-								Judge Prompt
-								<i
-									class="pi pi-question-circle help-icon"
-									pTooltip="Custom template that controls how this judge formats its evaluation output. When empty, a shared system template is used that produces structured JSON with scores, feedback, and a top issue. Override only if you need a specialized output format."
-									tooltipPosition="right"
-								></i>
-							</label>
+							<div class="label-row">
+								<label
+									for="judgePrompt"
+									class="label-with-help"
+								>
+									Judge Prompt
+									<i
+										class="pi pi-question-circle help-icon"
+										pTooltip="Custom template that controls how this judge formats its evaluation output. When empty, a shared system template is used that produces structured JSON with scores, feedback, and a top issue. Override only if you need a specialized output format."
+										tooltipPosition="right"
+									></i>
+								</label>
+								<p-button
+									icon="pi pi-file-edit"
+									label="Insert Example"
+									[text]="true"
+									size="small"
+									(onClick)="loadJudgePromptTemplate()"
+									pTooltip="Insert a best-practices judge prompt template to edit"
+									tooltipPosition="left"
+								/>
+							</div>
 							<textarea
 								id="judgePrompt"
 								pTextarea
@@ -825,6 +828,16 @@
 						}
 					</div>
 				</p-tabpanel>
+
+				<!-- Tab 5: Analytics (judges only) -->
+				@if (!isCreateMode() && agent()?.canJudge) {
+				<p-tabpanel value="5">
+					<app-judge-analytics
+						[agent]="agent()!"
+						(promptApplied)="form.get('judgePrompt')?.setValue($event)"
+					></app-judge-analytics>
+				</p-tabpanel>
+				}
 			</p-tabpanels>
 		</form>
 	</p-tabs>
