@@ -10,6 +10,11 @@ import type {
 	AgentCreateDto,
 	AgentUpdateDto,
 } from '../models/agent.model';
+import type {
+	JudgeAnalyticsResponse,
+	QualitativeAnalysisResponse,
+	PromptOptimizationResponse,
+} from '../models/judge-analytics.model';
 
 interface ApiResponse<T> {
 	status: string;
@@ -144,6 +149,44 @@ export class AgentService {
 		return this.http.post<ApiResponse<EvaluationResponse>>(
 			`${this.apiUrl}/organization/${orgId}/image-generation/evaluate`,
 			body,
+			{ headers: this.defaultHeaders },
+		);
+	}
+
+	// --- Judge Analytics ---
+
+	getJudgeAnalytics(
+		orgId: string,
+		agentId: string,
+		limit = 50,
+	): Observable<ApiResponse<JudgeAnalyticsResponse>> {
+		const params = new HttpParams().set('limit', limit.toString());
+		return this.http.get<ApiResponse<JudgeAnalyticsResponse>>(
+			`${this.apiUrl}/organization/${orgId}/agents/${agentId}/analytics`,
+			{ headers: this.defaultHeaders, params },
+		);
+	}
+
+	analyzeJudge(
+		orgId: string,
+		agentId: string,
+		limit = 50,
+	): Observable<ApiResponse<QualitativeAnalysisResponse>> {
+		return this.http.post<ApiResponse<QualitativeAnalysisResponse>>(
+			`${this.apiUrl}/organization/${orgId}/agents/${agentId}/analytics/analyze`,
+			{ limit },
+			{ headers: this.defaultHeaders },
+		);
+	}
+
+	optimizeJudgePrompt(
+		orgId: string,
+		agentId: string,
+		limit = 50,
+	): Observable<ApiResponse<PromptOptimizationResponse>> {
+		return this.http.post<ApiResponse<PromptOptimizationResponse>>(
+			`${this.apiUrl}/organization/${orgId}/agents/${agentId}/analytics/optimize-prompt`,
+			{ limit },
 			{ headers: this.defaultHeaders },
 		);
 	}

@@ -1,0 +1,392 @@
+<div class="analytics-container">
+	<!-- Overview Bar -->
+	<div class="analytics-overview">
+		<div class="analytics-overview__stats">
+			@if (analyticsData(); as data) {
+				<div class="stat-item">
+					<span class="stat-label">Requests Analyzed</span>
+					<span class="stat-value">{{ data.requestsAnalyzed }}</span>
+				</div>
+				<div class="stat-item">
+					<span class="stat-label">Date Range</span>
+					<span class="stat-value">
+						{{ formatDate(data.dateRange.from) }} &mdash;
+						{{ formatDate(data.dateRange.to) }}
+					</span>
+				</div>
+				<div class="stat-item">
+					<span class="stat-label">Avg Score</span>
+					<span class="stat-value">{{ data.avgOverallScore }}</span>
+				</div>
+			}
+		</div>
+		<div class="analytics-overview__controls">
+			<label for="limitSelect" class="limit-label">Sample size:</label>
+			<p-select
+				[options]="limitOptions"
+				optionLabel="label"
+				optionValue="value"
+				[ngModel]="limit()"
+				(ngModelChange)="onLimitChange($event)"
+				inputId="limitSelect"
+				[style]="{ width: '5rem' }"
+			></p-select>
+			<p-button
+				icon="pi pi-refresh"
+				[text]="true"
+				[rounded]="true"
+				size="small"
+				(onClick)="loadData()"
+				pTooltip="Refresh analytics"
+			></p-button>
+		</div>
+	</div>
+
+	<!-- Loading / Error / Empty States -->
+	@if (analyticsLoading()) {
+		<div class="loading-section">
+			<p-progressSpinner
+				[style]="{ width: '40px', height: '40px' }"
+			></p-progressSpinner>
+			<span>Loading analytics...</span>
+		</div>
+	} @else if (analyticsError()) {
+		<p-message severity="error">{{ analyticsError() }}</p-message>
+	} @else if (analyticsData(); as data) {
+		@if (data.requestsAnalyzed === 0) {
+			<p-message severity="info">
+				This judge has not been used in any completed generation
+				requests yet. Run some evaluations to see analytics here.
+			</p-message>
+		} @else {
+			<!-- Section 1: Checklist Pass Rates -->
+			@if (data.checklistPassRates.length > 0) {
+				<div class="analytics-section">
+					<h3 class="section-title">Checklist Pass Rates</h3>
+					<p class="section-description">
+						Criteria that almost never pass may indicate the judge
+						is asking for something AI image generation cannot
+						reliably achieve. Criteria that almost always pass may
+						not be adding value &mdash; they don't discriminate
+						between good and bad outputs.
+					</p>
+
+					<p-table
+						[value]="data.checklistPassRates"
+						styleClass="p-datatable-sm"
+					>
+						<ng-template pTemplate="header">
+							<tr>
+								<th>Criteria</th>
+								<th style="width: 10rem">Pass Rate</th>
+								<th style="width: 8rem">Evaluations</th>
+								<th style="width: 8rem">Flag</th>
+							</tr>
+						</ng-template>
+						<ng-template pTemplate="body" let-row>
+							<tr [class.flagged-row]="row.flag">
+								<td>{{ row.criteria }}</td>
+								<td>
+									<div class="pass-rate-cell">
+										<p-progressBar
+											[value]="row.passRate"
+											[showValue]="false"
+											[style]="{ height: '8px', flex: 1 }"
+										></p-progressBar>
+										<span class="pass-rate-value"
+											>{{ row.passRate }}%</span
+										>
+									</div>
+								</td>
+								<td>{{ row.timesEvaluated }}</td>
+								<td>
+									@if (row.flag) {
+										<p-tag
+											[severity]="
+												getFlagSeverity(row.flag)
+											"
+											[value]="getFlagLabel(row.flag)"
+										></p-tag>
+									}
+								</td>
+							</tr>
+						</ng-template>
+						<ng-template pTemplate="emptymessage">
+							<tr>
+								<td colspan="4" class="empty-message">
+									No checklist data available
+								</td>
+							</tr>
+						</ng-template>
+					</p-table>
+				</div>
+			}
+
+			<!-- Section 2: Category Score Averages -->
+			@if (data.categoryScoreAverages.length > 0) {
+				<div class="analytics-section">
+					<h3 class="section-title">Category Score Averages</h3>
+					<p class="section-description">
+						Categories with high averages and low deviation are
+						strengths the judge consistently recognizes. Categories
+						with low averages may represent persistent weaknesses in
+						generation, or overly strict criteria.
+					</p>
+
+					<p-table
+						[value]="data.categoryScoreAverages"
+						styleClass="p-datatable-sm"
+					>
+						<ng-template pTemplate="header">
+							<tr>
+								<th>Category</th>
+								<th style="width: 6rem">Avg</th>
+								<th style="width: 6rem">Min</th>
+								<th style="width: 6rem">Max</th>
+								<th style="width: 6rem">Std Dev</th>
+							</tr>
+						</ng-template>
+						<ng-template pTemplate="body" let-row>
+							<tr>
+								<td>{{ row.category }}</td>
+								<td>
+									<strong>{{ row.avg }}</strong>
+								</td>
+								<td>{{ row.min }}</td>
+								<td>{{ row.max }}</td>
+								<td>{{ row.stdDev }}</td>
+							</tr>
+						</ng-template>
+					</p-table>
+				</div>
+			}
+
+			<!-- Section 3: Score Distribution -->
+			<div class="analytics-section">
+				<h3 class="section-title">Score Distribution</h3>
+				<p class="section-description">
+					A judge that clusters most scores in one range may not be
+					calibrated well. A good judge produces a spread across
+					ranges as image quality varies.
+				</p>
+
+				<p-table
+					[value]="data.scoreDistribution"
+					styleClass="p-datatable-sm"
+				>
+					<ng-template pTemplate="header">
+						<tr>
+							<th>Score Range</th>
+							<th style="width: 8rem">Count</th>
+							<th style="width: 8rem">Percentage</th>
+						</tr>
+					</ng-template>
+					<ng-template pTemplate="body" let-row>
+						<tr>
+							<td>{{ row.bucket }}</td>
+							<td>{{ row.count }}</td>
+							<td>{{ row.percentage }}%</td>
+						</tr>
+					</ng-template>
+				</p-table>
+			</div>
+
+			<!-- Section 4: Severity Breakdown -->
+			<div class="analytics-section">
+				<h3 class="section-title">Top Issue Severity Breakdown</h3>
+				<p class="section-description">
+					A judge that almost always flags "critical" issues may be
+					too harsh, while one that mostly flags "minor" may not be
+					pushing hard enough for improvement.
+				</p>
+
+				<p-table
+					[value]="data.severityBreakdown"
+					styleClass="p-datatable-sm"
+				>
+					<ng-template pTemplate="header">
+						<tr>
+							<th>Severity</th>
+							<th style="width: 8rem">Count</th>
+							<th style="width: 8rem">Percentage</th>
+						</tr>
+					</ng-template>
+					<ng-template pTemplate="body" let-row>
+						<tr>
+							<td>
+								<p-tag
+									[severity]="getSeverityClass(row.severity)"
+									[value]="row.severity"
+								></p-tag>
+							</td>
+							<td>{{ row.count }}</td>
+							<td>{{ row.percentage }}%</td>
+						</tr>
+					</ng-template>
+				</p-table>
+			</div>
+
+			<!-- Section 5: Qualitative Analysis -->
+			<div class="analytics-section">
+				<h3 class="section-title">Feedback Pattern Analysis</h3>
+
+				@if (analysisLoading()) {
+					<div class="loading-section loading-section--small">
+						<p-progressSpinner
+							[style]="{ width: '30px', height: '30px' }"
+						></p-progressSpinner>
+						<span>Analyzing feedback patterns...</span>
+					</div>
+				} @else if (analysisError()) {
+					<p-message severity="warn">{{ analysisError() }}</p-message>
+				} @else if (qualitativeAnalysis(); as analysis) {
+					@if (analysis.summary !== "No data to analyze.") {
+						<div class="qualitative-card">
+							<div class="qualitative-section">
+								<h4>Summary</h4>
+								<p
+									[innerHTML]="analysis.summary | markdown"
+								></p>
+							</div>
+
+							@if (analysis.recurringThemes.length > 0) {
+								<div class="qualitative-section">
+									<h4>Recurring Themes</h4>
+									<ul>
+										@for (
+											theme of analysis.recurringThemes;
+											track $index
+										) {
+											<li>{{ theme }}</li>
+										}
+									</ul>
+								</div>
+							}
+							@if (analysis.blindSpots.length > 0) {
+								<div class="qualitative-section">
+									<h4>Blind Spots</h4>
+									<ul>
+										@for (
+											spot of analysis.blindSpots;
+											track $index
+										) {
+											<li>{{ spot }}</li>
+										}
+									</ul>
+								</div>
+							}
+							@if (analysis.strengthsRecognized.length > 0) {
+								<div class="qualitative-section">
+									<h4>Strengths Recognized</h4>
+									<ul>
+										@for (
+											strength of analysis.strengthsRecognized;
+											track $index
+										) {
+											<li>{{ strength }}</li>
+										}
+									</ul>
+								</div>
+							}
+
+							<div class="qualitative-section">
+								<h4>Feedback Quality</h4>
+								<p
+									[innerHTML]="
+										analysis.feedbackQuality | markdown
+									"
+								></p>
+							</div>
+						</div>
+					}
+				}
+			</div>
+
+			<!-- Optimize Section -->
+			<div class="analytics-section optimize-section">
+				<p-divider></p-divider>
+
+				@if (!optimizationResult()) {
+					<div class="optimize-action">
+						<div>
+							<h3
+								class="section-title"
+								style="margin-bottom: 0.25rem"
+							>
+								Optimize Judge Prompt
+							</h3>
+							<p class="section-description">
+								Generate an improved prompt based on the
+								analytics above. Removes ineffective criteria
+								and sharpens the scoring rubric.
+							</p>
+						</div>
+						<p-button
+							label="Optimize"
+							icon="pi pi-sparkles"
+							(onClick)="optimizePrompt()"
+							[loading]="optimizeLoading()"
+							[disabled]="
+								optimizeLoading() ||
+								analyticsLoading() ||
+								(analyticsData()?.requestsAnalyzed ?? 0) < 3
+							"
+						></p-button>
+					</div>
+					@if ((analyticsData()?.requestsAnalyzed ?? 0) < 3) {
+						<small class="helper-text"
+							>At least 3 completed requests are needed to
+							optimize.</small
+						>
+					}
+				} @else if (optimizationResult(); as result) {
+					<div class="optimization-result">
+						@if (result.isUsingDefaultTemplate) {
+							<p-message severity="warn">
+								This agent currently uses the shared default
+								template. Applying will override it with a
+								custom prompt.
+							</p-message>
+						}
+
+						<h4>Suggested Changes</h4>
+						<ul class="changes-list">
+							@for (change of result.changes; track $index) {
+								<li>{{ change }}</li>
+							}
+						</ul>
+
+						<div class="prompt-comparison">
+							<div class="prompt-panel">
+								<h4>Current Prompt</h4>
+								<pre class="prompt-text">{{
+									result.currentPrompt
+								}}</pre>
+							</div>
+							<div class="prompt-panel">
+								<h4>Suggested Prompt</h4>
+								<pre class="prompt-text suggested">{{
+									result.suggestedPrompt
+								}}</pre>
+							</div>
+						</div>
+
+						<div class="optimization-actions">
+							<p-button
+								label="Discard"
+								severity="secondary"
+								[outlined]="true"
+								(onClick)="discardOptimization()"
+							></p-button>
+							<p-button
+								label="Apply Optimized Prompt"
+								icon="pi pi-check"
+								(onClick)="applyOptimizedPrompt()"
+							></p-button>
+						</div>
+					</div>
+				}
+			</div>
+		}
+	}
+</div>
